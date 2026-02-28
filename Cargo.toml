@@ -23,10 +23,6 @@ async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
 clap = { version = "4", features = ["derive"] }
 axum = "0.7"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"]}
 tower = "0.4"
-
-# Workspace members
-zero-core = { path = "zero-core" }
-zero-cli = { path = "zero-cli" }
-zero-api = { path = "zero-api" }
+zero-core = { version = "0.1.0", path = "zero-core" }
