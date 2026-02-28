@@ -21,12 +21,11 @@ impl EventBus {
         EventBus { sender: tx }
     }
 
-    pub fn publisher(&self) -> broadcast::Sender<BusMessage> {
-        self.sender.clone()
+    pub fn subscriber(&self) -> BusReceiver {
+        self.sender.subscribe()
     }
 
     pub async fn publish(&self, msg: BusMessage) {
-        // Best-effort publish; ignore if there are no subscribers
         let _ = self.sender.send(msg);
     }
 }
