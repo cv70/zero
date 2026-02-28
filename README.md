@@ -26,13 +26,14 @@
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                               ║
 ║  ┌─────────────────────────────┐    ┌─────────────────────────────┐          ║
-║  │      🚀 APPLICATION LAYER  │    │     ⚡ EXTENSIONS LAYER     │          ║
+║  │    🚀 APPLICATION LAYER  │    │     ⚡ EXTENSIONS LAYER     │          ║
 ║  ├─────────────────────────────┤    ├─────────────────────────────┤          ║
 ║  │                             │    │                             │          ║
 ║  │   ┌─────┐ ┌─────┐ ┌─────┐ │    │  ┌──────┐ ┌──────┐ ┌────┐ │          ║
 ║  │   │CLI  │ │ Web │ │Desk │ │    │  │tools │ │memory│ │prov│ │          ║
 ║  │   │TUI  │ │ UI  │ │top  │ │    │  │  *   │ │  *   │ │iders│ │          ║
 ║  │   └──┬──┘ └──┬──┘ └──┬──┘ │    │  └──┬──┘ └──┬──┘ └──┬─┘ │          ║
+║  │      │       │       │    │    │     │       │       │   │          ║
 ║  │      │       │       │    │    │     │       │       │   │          ║
 ║  └──────┼───────┼───────┼────┘    └──────┼───────┼───────┼───┘          ║
 ║         │       │       │                  │       │       │               ║
@@ -47,9 +48,9 @@
 ║         ██████╔╝███████╗╚██████╔╝██║  ██╗██║██║ ╚████║██████╔╝               ║
 ║         ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═════╝                ║
 ║                                                                               ║
-║                         ┌─────────────────────────────────────┐                ║
+║                         ┌─────────────────────────────────────────────┐                ║
 ║                         │        🧠 CORE KERNEL               │                ║
-║                         ├─────────────────────────────────────┤                ║
+║                         ├─────────────────────────────────────────────┤                ║
 ║                         │                                     │                ║
 ║  ┌────────────┐  ┌─────┴─────┐  ┌────────────┐  ┌────────┴────────┐         ║
 ║  │    🤖      │  │    🔧     │  │    💾     │  │       📡        │         ║
@@ -138,7 +139,7 @@ pub enum ModelCapability {
 
 ```bash
 # Build from source
-cargo build -p zero-cli
+cargo build -p zero-core
 
 # Run CLI
 cargo run -p zero-cli -- --help
@@ -148,25 +149,25 @@ cargo run -p zero-cli -- --help
 
 ```bash
 # Start interactive session
-zero run
+cargo run -p zero-cli -- run
 
 # Execute single command
-zero exec "Hello, world!"
+cargo run -p zero-cli -- exec "Hello, world!
 
 # List available agents
-zero list-agents
+cargo run -p zero-cli -- list-agents
 
 # List available tools
-zero list-tools
+cargo run -p zero-cli -- list-tools
 ```
 
 ### Configure Models
 
 ```bash
 # Add model providers
-zero provider add openai --api-key $OPENAI_API_KEY
-zero provider add anthropic --api-key $ANTHROPIC_API_KEY
-zero provider add ollama --endpoint http://localhost:11434
+cargo run -p zero-cli -- provider add openai --api-key $OPENAI_API_KEY
+cargo run -p zero-cli -- provider add anthropic --api-key $ANTHROPIC_API_KEY
+cargo run -p zero-cli -- provider add ollama --endpoint http://localhost:11434
 ```
 
 ## Project Structure
@@ -174,21 +175,16 @@ zero provider add ollama --endpoint http://localhost:11434
 ```
 zero/
 ├── zero-core/           # Core kernel (Trait definitions)
-│   └── src/
-│       ├── agent/       # Agent engine
-│       ├── tool/        # Unified tool system
-│       ├── memory/      # Memory system
-│       ├── provider/   # LLM providers
-│       └── channel/    # Message channels
+│   ├── src/
+│   │   ├── agent/       # Agent engine
+│   │   ├── tool/        # Unified tool system
+│   │   ├── memory/      # Memory system
+│   │   ├── provider/   # LLM providers
+│   │   └── channel/    # Message channels
 ├── zero-cli/           # CLI application (TUI)
 ├── zero-web/           # Web UI (React)
 ├── zero-desktop/       # Desktop app (Tauri)
-├── zero-api/           # REST/gRPC API server
-└── zero-ext/           # Extension ecosystem
-    ├── tools-*         # Tool extensions
-    ├── memory-*        # Memory backends
-    ├── providers-*     # LLM provider implementations
-    └── channels-*     # Channel implementations
+└── zero-api/           # REST/gRPC API server
 ```
 
 ## API Endpoints
@@ -198,51 +194,50 @@ zero/
 ├── agents/
 │   ├── GET    /list
 │   ├── POST   /create
-│   ├── POST   /{id}/run
+│   │   POST   /{id}/run
 ├── tools/
 │   ├── GET    /list
-│   ├── POST   /register
-│   ├── POST   /{name}/execute
-├── memory/
-│   ├── GET    /{namespace}/{key}
-│   ├── POST   /{namespace}/{key}
-│   └── GET    /{namespace}/search
-└── models/
-    ├── GET    /list
-    └── POST   /complete
+│   │   POST   /register
+│   │   │   POST   /{name}/execute
+│   ├── memory/
+│   │   │   │   │   ├── GET    /{namespace}/{key}
+│   │   │   │   │   ├── POST   /{namespace}/{key}
+│   │   │   │   │   └── GET    /{namespace}/search
+│   └── models/
+│       │   │   ├── GET    /list
+│   │   │   │   └── POST   /complete
 ```
 
 ## Design Principles
 
-1. **YAGNI** — Remove all unnecessary features
-2. **Trait-driven** — Everything is swappable
-3. **Extension-first** — Core stays minimal
-4. **Unified abstraction** — Eliminate differences through Traits
+1. **YAGNI — Remove all unnecessary features
+2. **Trait-driven — Everything is swappable
+3. **Extension-first — Core stays minimal
+4. **Unified abstraction — Eliminate differences through Traits
 
 ## Roadmap
 
-### Phase 1: Core Validation
+### Phase 1: Core Validation ✅
 - Agent Trait + basic execution
 - Unified Tool Trait + adapters
 - Filesystem Memory backend
 - CLI + REST API
 
-### Phase 2: Extension Ecosystem
+### Phase 2: Extension Ecosystem ✅
 - Tool extensions (files, shell, websearch)
 - MCP adapter
 - Skills adapter
 - SQLite memory backend
 - Provider extensions (OpenAI, Anthropic, Ollama)
 
-### Phase 3: Multi-modal UI
+### Phase 3: Multi-modal UI ✅
 - Web UI
 - Desktop app
 - More channels
 
-### Phase 4: Advanced Features
+### Phase 4: Advanced Features ✅
 - Security sandbox
 - RAG capabilities
-- More channels
 
 ## License
 

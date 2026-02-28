@@ -78,9 +78,9 @@ impl Default for LoadBalancingPolicy {
 impl Default for CoordinatorRegistry {
     fn default() -> Self {
         Self {
-            agents: std::collections::HashMap::new();
-            routing_policy: Box::new(RoundRobinRoutingPolicy::new());
-            load_balancing_policy: Box::new(RoundRobinPolicy::new());
+            agents: std::collections::HashMap::new(),
+            routing_policy: Box::new(RoundRobinRoutingPolicy::new()),
+            load_balancing_policy: Box::new(RoundRobinPolicy::new())
         }
     }
 }
