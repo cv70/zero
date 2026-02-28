@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zero.fullname" . }}
+  labels:
+    app: {{ include "zero.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "zero.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "zero.name" . }}
+    spec:
+      containers:
+        - name: zero
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          env:
+            - name: ZERO_LOG_LEVEL
+              value: {{ .Values.env.ZERO_LOG_LEVEL | quote }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}

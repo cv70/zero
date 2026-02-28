@@ -10,6 +10,14 @@
 - **Rust-first** — High performance, low resource footprint (<5MB RAM)
 - **Trait-driven** — Everything is swappable through Trait definitions
 - **Extensible** — Core stays minimal, capabilities come from extensions
+# Edition
+
+## 2024-02-28 - Rust Edition 2024
+
+- Updated Rust edition from 2021 to 2024
+- This edition includes the latest language improvements and performance optimizations
+- See [docs/editions.md](docs/editions.md) for edition history
+
 
 ## ⚡ Core Architecture
 

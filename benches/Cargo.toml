@@ -1,0 +1,11 @@
+[package]
+name = "zero-perf-benches"
+version = "0.1.0"
+edition = "2021"
+
+[[bench]]
+name = "bench_basic"
+path = "bench_basic.rs"
+
+[dev-dependencies]
+criterion = "0.4"

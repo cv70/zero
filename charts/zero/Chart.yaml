@@ -1,0 +1,5 @@
+apiVersion: v2
+name: zero
+description: Deployment chart for the zero platform modules
+version: 0.1.0
+appVersion: 0.1.0
