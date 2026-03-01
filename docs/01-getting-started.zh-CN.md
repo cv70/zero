@@ -94,7 +94,7 @@ cargo doc --open
 
 ### 创建 Rust 文件
 
-创建 `examples/hello_agent.rs`：
+创建 `examples/01-simple-agent.rs`：
 
 ```rust
 use async_trait::async_trait;
@@ -162,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 cd /path/to/zero
-cargo run --example hello_agent
+cargo run --example 01-simple-agent
 ```
 
 预期输出：
@@ -209,15 +209,15 @@ cargo test -- --nocapture
 ### 运行代码
 
 ```bash
-# 运行 hello_agent 示例
-cargo run --example hello_agent
+# 运行 01-simple-agent 示例
+cargo run --example 01-simple-agent
 
 # 运行特定二进制文件
 cargo run -p zero-cli -- [参数]
 cargo run -p zero-api
 
 # 使用发布优化运行
-cargo run --release --example hello_agent
+cargo run --release --example 01-simple-agent
 ```
 
 ### 文档和探索

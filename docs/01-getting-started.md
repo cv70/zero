@@ -94,7 +94,7 @@ Let's create a simple agent that uses the core traits. This program demonstrates
 
 ### Create a New Rust File
 
-Create `examples/hello_agent.rs`:
+Create `examples/01-simple-agent.rs`:
 
 ```rust
 use async_trait::async_trait;
@@ -162,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 cd /path/to/zero
-cargo run --example hello_agent
+cargo run --example 01-simple-agent
 ```
 
 Expected output:
@@ -209,15 +209,15 @@ cargo test -- --nocapture
 ### Running Code
 
 ```bash
-# Run the hello_agent example
-cargo run --example hello_agent
+# Run the 01-simple-agent example
+cargo run --example 01-simple-agent
 
 # Run specific binaries
 cargo run -p zero-cli -- [arguments]
 cargo run -p zero-api
 
 # Run with release optimizations
-cargo run --release --example hello_agent
+cargo run --release --example 01-simple-agent
 ```
 
 ### Documentation and Exploration
