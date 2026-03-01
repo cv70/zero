@@ -47,6 +47,10 @@ pub struct AgentLoopConfig {
     /// Whether to log verbose debug information
     /// Default: false
     pub verbose_logging: bool,
+
+    /// Maximum context tokens before compaction (0 = disabled)
+    /// Default: 0 (disabled)
+    pub max_context_tokens: usize,
 }
 
 impl AgentLoopConfig {
@@ -97,6 +101,12 @@ impl AgentLoopConfig {
         self
     }
 
+    /// Set the maximum context tokens before compaction triggers (0 = disabled)
+    pub fn with_max_context_tokens(mut self, max: usize) -> Self {
+        self.max_context_tokens = max;
+        self
+    }
+
     /// Convert provider timeout to Duration
     pub fn provider_timeout_duration(&self) -> Duration {
         Duration::from_secs(self.provider_timeout)
@@ -118,6 +128,7 @@ impl Default for AgentLoopConfig {
             save_history: true,
             max_concurrent_tools: 4,
             verbose_logging: false,
+            max_context_tokens: 0,
         }
     }
 }

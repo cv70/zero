@@ -73,6 +73,8 @@ pub struct AnthropicLoopProvider {
     system_prompt: Option<String>,
     max_tokens: u32,
     tools: Vec<serde_json::Value>,
+    /// Whether to enable Anthropic prompt caching (default: true)
+    enable_caching: bool,
 }
 
 impl AnthropicLoopProvider {
@@ -85,6 +87,7 @@ impl AnthropicLoopProvider {
             system_prompt: None,
             max_tokens: DEFAULT_MAX_TOKENS,
             tools: Vec::new(),
+            enable_caching: true,
         }
     }
 
@@ -115,6 +118,12 @@ impl AnthropicLoopProvider {
     /// Override the HTTP client (useful for testing).
     pub fn with_client(mut self, client: reqwest::Client) -> Self {
         self.client = client;
+        self
+    }
+
+    /// Enable or disable Anthropic prompt caching.
+    pub fn with_caching(mut self, enable: bool) -> Self {
+        self.enable_caching = enable;
         self
     }
 
@@ -197,11 +206,34 @@ impl AnthropicLoopProvider {
         });
 
         if let Some(ref system) = self.system_prompt {
-            body["system"] = serde_json::json!(system);
+            if self.enable_caching {
+                // Wrap system prompt in array with cache_control for prompt caching
+                body["system"] = serde_json::json!([{
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"}
+                }]);
+            } else {
+                body["system"] = serde_json::json!(system);
+            }
         }
 
         if !self.tools.is_empty() {
-            body["tools"] = serde_json::json!(self.tools);
+            if self.enable_caching {
+                // Add cache_control to the last tool definition
+                let mut tools = self.tools.clone();
+                if let Some(last_tool) = tools.last_mut() {
+                    if let serde_json::Value::Object(map) = last_tool {
+                        map.insert(
+                            "cache_control".to_string(),
+                            serde_json::json!({"type": "ephemeral"}),
+                        );
+                    }
+                }
+                body["tools"] = serde_json::json!(tools);
+            } else {
+                body["tools"] = serde_json::json!(self.tools);
+            }
         }
 
         if stream {
@@ -245,12 +277,18 @@ impl LoopProvider for AnthropicLoopProvider {
     async fn complete(&self, messages: &[Message]) -> Result<ProviderResponse, ProviderError> {
         let request_body = self.build_request_body(messages);
 
-        let response = self
+        let mut request = self
             .client
             .post(ANTHROPIC_API_URL)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
-            .header("content-type", "application/json")
+            .header("content-type", "application/json");
+
+        if self.enable_caching {
+            request = request.header("anthropic-beta", "prompt-caching-2024-07-31");
+        }
+
+        let response = request
             .json(&request_body)
             .send()
             .await
@@ -352,12 +390,18 @@ impl StreamingLoopProvider for AnthropicLoopProvider {
     {
         let request_body = self.build_request_body_inner(messages, true);
 
-        let response = self
+        let mut request = self
             .client
             .post(ANTHROPIC_API_URL)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
-            .header("content-type", "application/json")
+            .header("content-type", "application/json");
+
+        if self.enable_caching {
+            request = request.header("anthropic-beta", "prompt-caching-2024-07-31");
+        }
+
+        let response = request
             .json(&request_body)
             .send()
             .await
@@ -619,11 +663,27 @@ mod tests {
     #[test]
     fn test_build_request_body_with_system_prompt() {
         let provider = AnthropicLoopProvider::new("test-key".to_string())
-            .with_system_prompt("You are a helpful assistant.");
+            .with_system_prompt("You are a helpful assistant.")
+            .with_caching(false);
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
         assert_eq!(body["system"], "You are a helpful assistant.");
+    }
+
+    #[test]
+    fn test_build_request_body_with_system_prompt_cached() {
+        let provider = AnthropicLoopProvider::new("test-key".to_string())
+            .with_system_prompt("You are a helpful assistant.");
+        let messages = vec![Message::user("Hello")];
+        let body = provider.build_request_body(&messages);
+
+        // When caching is enabled, system should be an array with cache_control
+        let system = body["system"].as_array().unwrap();
+        assert_eq!(system.len(), 1);
+        assert_eq!(system[0]["type"], "text");
+        assert_eq!(system[0]["text"], "You are a helpful assistant.");
+        assert_eq!(system[0]["cache_control"]["type"], "ephemeral");
     }
 
     #[test]
@@ -640,11 +700,39 @@ mod tests {
             }
         })];
 
-        let provider = AnthropicLoopProvider::new("test-key".to_string()).with_tools(tools.clone());
+        let provider = AnthropicLoopProvider::new("test-key".to_string())
+            .with_tools(tools.clone())
+            .with_caching(false);
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
         assert_eq!(body["tools"], json!(tools));
+    }
+
+    #[test]
+    fn test_build_request_body_with_tools_cached() {
+        let tools = vec![json!({
+            "name": "bash",
+            "description": "Execute shell commands",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"}
+                },
+                "required": ["command"]
+            }
+        })];
+
+        let provider = AnthropicLoopProvider::new("test-key".to_string())
+            .with_tools(tools.clone());
+        let messages = vec![Message::user("Hello")];
+        let body = provider.build_request_body(&messages);
+
+        // When caching is enabled, the last tool should have cache_control
+        let result_tools = body["tools"].as_array().unwrap();
+        assert_eq!(result_tools.len(), 1);
+        assert_eq!(result_tools[0]["name"], "bash");
+        assert_eq!(result_tools[0]["cache_control"]["type"], "ephemeral");
     }
 
     #[test]
@@ -924,7 +1012,8 @@ mod tests {
                     "properties": {"command": {"type": "string"}},
                     "required": ["command"]
                 }
-            })]);
+            })])
+            .with_caching(false);
 
         // Simulate a multi-turn conversation
         let messages = vec![

@@ -16,6 +16,7 @@ use crate::provider::loop_provider::{StreamEvent, StreamingLoopProvider};
 use crate::tool::{ToolDispatcher, ToolCall};
 use crate::agent::loop_config::AgentLoopConfig;
 use crate::hooks::HookManager;
+use super::context_manager::ContextManager;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -103,6 +104,12 @@ impl AgentLoop for DefaultAgentLoop {
                 return Err(AgentError::MaxIterationsExceeded(iteration));
             }
             iteration += 1;
+
+            // Context compaction if configured
+            if config.max_context_tokens > 0 {
+                let manager = ContextManager::new(config.max_context_tokens);
+                manager.compact_if_needed(messages);
+            }
 
             if config.verbose_logging {
                 eprintln!("[AgentLoop] Iteration {} of {}", iteration, config.max_iterations);
