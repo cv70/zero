@@ -11,3 +11,4 @@ pub mod router;
 
 pub use r#trait::{LLMProvider, ModelCapability, MediaInput, CompleteOpts};
 pub use loop_provider::{LoopProvider, ProviderResponse};
+pub use anthropic::AnthropicLoopProvider;
