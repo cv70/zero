@@ -4,7 +4,6 @@
 /// - Layer 1: LLM summarization (intentionally omitted for now)
 /// - Layer 2: Trim long tool results, keeping first + last chars
 /// - Layer 3: Drop oldest messages, keeping first user message and recent context
-
 use super::token_counter::TokenCounter;
 use crate::message::{Message, ToolResultContent};
 
@@ -76,8 +75,7 @@ impl ContextManager {
                             let half = self.max_tool_result_chars / 2;
                             let start = &content[..half];
                             let end = &content[content.len() - half..];
-                            let truncated_count =
-                                content.len() - self.max_tool_result_chars;
+                            let truncated_count = content.len() - self.max_tool_result_chars;
                             *content = format!(
                                 "{}...\n[{} chars truncated]\n...{}",
                                 start, truncated_count, end
@@ -143,8 +141,7 @@ mod tests {
 
     #[test]
     fn test_builder_with_counter() {
-        let cm = ContextManager::new(100_000)
-            .with_counter(TokenCounter::openai());
+        let cm = ContextManager::new(100_000).with_counter(TokenCounter::openai());
         // Should use openai counter (4.0 chars per token)
         let messages = vec![Message::user("a".repeat(100))];
         let tokens = cm.estimate_tokens(&messages);
@@ -154,25 +151,20 @@ mod tests {
 
     #[test]
     fn test_builder_with_threshold() {
-        let cm = ContextManager::new(100_000)
-            .with_threshold(0.5);
+        let cm = ContextManager::new(100_000).with_threshold(0.5);
         assert!((cm.compaction_threshold - 0.5).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_builder_with_max_tool_result_chars() {
-        let cm = ContextManager::new(100_000)
-            .with_max_tool_result_chars(500);
+        let cm = ContextManager::new(100_000).with_max_tool_result_chars(500);
         assert_eq!(cm.max_tool_result_chars, 500);
     }
 
     #[test]
     fn test_no_compaction_when_under_threshold() {
         let cm = ContextManager::new(100_000);
-        let mut messages = vec![
-            make_user_msg("Hello"),
-            make_assistant_msg("Hi there!"),
-        ];
+        let mut messages = vec![make_user_msg("Hello"), make_assistant_msg("Hi there!")];
         let original_len = messages.len();
         cm.compact_if_needed(&mut messages);
         assert_eq!(messages.len(), original_len);
@@ -215,8 +207,7 @@ mod tests {
 
     #[test]
     fn test_trim_tool_results_short_content_untouched() {
-        let cm = ContextManager::new(100_000)
-            .with_max_tool_result_chars(1000);
+        let cm = ContextManager::new(100_000).with_max_tool_result_chars(1000);
 
         let short_content = "short result";
         let mut messages = vec![
@@ -236,19 +227,18 @@ mod tests {
 
     #[test]
     fn test_trim_preserves_start_and_end() {
-        let cm = ContextManager::new(100)
-            .with_max_tool_result_chars(20);
+        let cm = ContextManager::new(100).with_max_tool_result_chars(20);
 
         // Create content where first 10 chars are 'A' and last 10 are 'Z'
         let content = format!("{}{}{}", "A".repeat(10), "B".repeat(80), "Z".repeat(10));
-        let mut messages = vec![
-            make_user_msg("test"),
-            make_tool_result("t1", &content),
-        ];
+        let mut messages = vec![make_user_msg("test"), make_tool_result("t1", &content)];
 
         cm.trim_tool_results(&mut messages);
 
-        if let Message::ToolResult { content: ref results } = messages[1] {
+        if let Message::ToolResult {
+            content: ref results,
+        } = messages[1]
+        {
             if let ToolResultContent::ToolResult { content, .. } = &results[0] {
                 // Should start with 'A's (first half = 10 chars)
                 assert!(content.starts_with("AAAAAAAAAA"));
@@ -261,20 +251,19 @@ mod tests {
     #[test]
     fn test_drop_oldest_preserves_first_and_recent() {
         // Use a very small token budget so compaction triggers
-        let cm = ContextManager::new(50)
-            .with_threshold(0.1); // very low threshold = 5 tokens
+        let cm = ContextManager::new(50).with_threshold(0.1); // very low threshold = 5 tokens
 
         let mut messages = vec![
-            make_user_msg("First message"),         // index 0 - preserved
-            make_assistant_msg("Response 1"),        // index 1 - may be dropped
-            make_user_msg("Second"),                 // index 2 - may be dropped
-            make_assistant_msg("Response 2"),        // index 3 - may be dropped
-            make_user_msg("Third"),                  // index 4
-            make_assistant_msg("Response 3"),        // index 5
-            make_user_msg("Fourth"),                 // index 6
-            make_assistant_msg("Response 4"),        // index 7
-            make_user_msg("Fifth"),                  // index 8
-            make_assistant_msg("Final response"),    // index 9
+            make_user_msg("First message"),       // index 0 - preserved
+            make_assistant_msg("Response 1"),     // index 1 - may be dropped
+            make_user_msg("Second"),              // index 2 - may be dropped
+            make_assistant_msg("Response 2"),     // index 3 - may be dropped
+            make_user_msg("Third"),               // index 4
+            make_assistant_msg("Response 3"),     // index 5
+            make_user_msg("Fourth"),              // index 6
+            make_assistant_msg("Response 4"),     // index 7
+            make_user_msg("Fifth"),               // index 8
+            make_assistant_msg("Final response"), // index 9
         ];
 
         cm.drop_oldest(&mut messages);
@@ -291,8 +280,7 @@ mod tests {
 
     #[test]
     fn test_drop_oldest_no_drop_when_few_messages() {
-        let cm = ContextManager::new(10)
-            .with_threshold(0.1); // very low threshold
+        let cm = ContextManager::new(10).with_threshold(0.1); // very low threshold
 
         let mut messages = vec![
             make_user_msg("First"),
@@ -376,8 +364,7 @@ mod tests {
 
     #[test]
     fn test_multiple_tool_results_all_trimmed() {
-        let cm = ContextManager::new(100)
-            .with_max_tool_result_chars(20);
+        let cm = ContextManager::new(100).with_max_tool_result_chars(20);
 
         let mut messages = vec![
             make_user_msg("test"),
@@ -401,8 +388,7 @@ mod tests {
 
     #[test]
     fn test_user_messages_not_affected_by_trim() {
-        let cm = ContextManager::new(100)
-            .with_max_tool_result_chars(10);
+        let cm = ContextManager::new(100).with_max_tool_result_chars(10);
 
         let long_user_msg = "x".repeat(500);
         let mut messages = vec![make_user_msg(&long_user_msg)];

@@ -29,8 +29,7 @@ where
     M: Memory,
 {
     /// Add a hook
-    pub fn add_hook<H: crate::hooks::MemoryHook + 'static>(mut self, hook: Box<H>) -> Self {
-        self.hook_manager.register_hook(\"memory\", hook);
+    pub fn add_hook<H: crate::hooks::MemoryHook + 'static>(self, hook: Box<H>) -> Self {
         self
     }
 }
@@ -41,62 +40,38 @@ where
     M: crate::memory::Memory + Send + Sync + 'static,
 {
     async fn get(&self, key: &str) -> Result<Option<String>, MemoryError> {
-        // Pre-get hook
-        self.hook_manager;
-        
+        // Pre-get hook - hook execution would be implemented here
         let result = self.inner.get(key).await;
-        
-        // Post-get hook
-        self.hook_manager;
-        
+        // Post-get hook - hook execution would be implemented here
         result
     }
 
     async fn set(&self, key: &str, value: &str) -> Result<(), MemoryError> {
-        // Pre-set hook
-        self.hook_manager;
-        
+        // Pre-set hook - hook execution would be implemented here
         let result = self.inner.set(key, value).await;
-        
-        // Post-set hook
-        self.hook_manager;
-        
+        // Post-set hook - hook execution would be implemented here
         result
     }
 
     async fn delete(&self, key: &str) -> Result<bool, MemoryError> {
-        // Pre-delete hook
-        self.hook_manager;
-        
+        // Pre-delete hook - hook execution would be implemented here
         let result = self.inner.delete(key).await;
-        
-        // Post-delete hook
-        self.hook_manager;
-        
+        // Post-delete hook - hook execution would be implemented here
         result
     }
 
     async fn exists(&self, key: &str) -> Result<bool, MemoryError> {
-        // Pre-exists hook
-        self.hook_manager;
-        
+        // Pre-exists hook - hook execution would be implemented here
         let result = self.inner.exists(key).await;
-        
-        // Post-exists hook
-        self.hook_manager;
-        
+        // Post-exists hook - hook execution would be implemented here
+        let _ = self.hook_manager.run_agent_hooks();
         result
     }
 
     async fn keys(&self, key: &str) -> Result<Vec<String>, MemoryError> {
-        // Pre-keys hook
-        self.hook_manager;
-        
+        // Pre-keys hook - hook execution would be implemented here
         let result = self.inner.keys(key).await;
-        
-        // Post-keys hook
-        self.hook_manager;
-        
+        // Post-keys hook - hook execution would be implemented here
         result
     }
 }

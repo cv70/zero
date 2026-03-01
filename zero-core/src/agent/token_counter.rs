@@ -4,7 +4,6 @@
 /// a tokenizer library. Different LLM providers have different average
 /// characters-per-token ratios, so this module supports provider-specific
 /// counters.
-
 use crate::message::{ContentBlock, Message, ToolResultContent};
 
 /// Approximate token counter for messages
@@ -45,9 +44,7 @@ impl TokenCounter {
     fn message_chars(&self, message: &Message) -> usize {
         match message {
             Message::User { content } => content.len(),
-            Message::Assistant { content } => {
-                content.iter().map(|b| self.block_chars(b)).sum()
-            }
+            Message::Assistant { content } => content.iter().map(|b| self.block_chars(b)).sum(),
             Message::ToolResult { content } => {
                 content.iter().map(|tr| self.tool_result_chars(tr)).sum()
             }

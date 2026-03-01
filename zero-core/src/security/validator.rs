@@ -1,10 +1,14 @@
 // Security validator implementation for Zero Platform
 //! # Security Validator
-//! 
+//!
 //! The security validator provides functions for validating input data.
 //! It helps prevent security issues by checking data before processing.
 
+use super::command_safety::CommandSafety;
 use std::collections::HashSet;
+use tracing::{info, warn};
+
+use crate::security::command_safety::classify_command;
 
 /// Validator for input data
 pub struct InputValidator {
@@ -41,7 +45,18 @@ impl InputValidator {
 
     /// Filter input to remove disallowed patterns
     pub fn filter(&self, input: &str) -> String {
-        input.to_string()
+        let classified = classify_command(input);
+        match classified {
+            CommandSafety::Dangerous(reason) => {
+                warn!("Dangerous command detected: {}", reason);
+                String::new()
+            }
+            CommandSafety::Safe => input.to_string(),
+            CommandSafety::Unknown => {
+                info!("Unknown command: {}", input);
+                input.to_string()
+            }
+        }
     }
 }
 

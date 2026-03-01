@@ -1,5 +1,5 @@
+use crate::error::{MemoryError, ProviderError};
 use async_trait::async_trait;
-use crate::error::{ProviderError, MemoryError};
 
 /// Hook trait for all hook types
 #[async_trait]
@@ -61,12 +61,22 @@ pub trait ToolHook: Hook {
     }
 
     /// Called after tool execution
-    async fn on_tool_execute_done(&self, _tool_name: &str, _input: &str, _result: &str) -> Result<(), String> {
+    async fn on_tool_execute_done(
+        &self,
+        _tool_name: &str,
+        _input: &str,
+        _result: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
 
     /// Called on tool error
-    async fn on_tool_error(&self, _tool_name: &str, _input: &str, _error: &str) -> Result<(), String> {
+    async fn on_tool_error(
+        &self,
+        _tool_name: &str,
+        _input: &str,
+        _error: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
 }
@@ -75,12 +85,22 @@ pub trait ToolHook: Hook {
 #[async_trait]
 pub trait ChannelHook: Hook {
     /// Called before message sending
-    async fn on_message_send(&self, _channel_name: &str, _to: &str, _content: &str) -> Result<(), String> {
+    async fn on_message_send(
+        &self,
+        _channel_name: &str,
+        _to: &str,
+        _content: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
 
     /// Called after message sending
-    async fn on_message_sent(&self, _channel_name: &str, _to: &str, _content: &str) -> Result<(), String> {
+    async fn on_message_sent(
+        &self,
+        _channel_name: &str,
+        _to: &str,
+        _content: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -90,7 +110,12 @@ pub trait ChannelHook: Hook {
     }
 
     /// Called after message receiving
-    async fn on_message_received(&self, _channel_name: &str, _from: &str, _content: &str) -> Result<(), String> {
+    async fn on_message_received(
+        &self,
+        _channel_name: &str,
+        _from: &str,
+        _content: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -102,7 +127,6 @@ pub trait ChannelHook: Hook {
 
 /// LLM Provider execution hooks
 
-
 /// Memory execution hooks
 #[async_trait]
 pub trait MemoryHook: Hook {
@@ -112,17 +136,32 @@ pub trait MemoryHook: Hook {
     }
 
     /// Called after memory get
-    async fn on_memory_get_done(&self, _memory_name: &str, _key: &str, _value: &str) -> Result<(), MemoryError> {
+    async fn on_memory_get_done(
+        &self,
+        _memory_name: &str,
+        _key: &str,
+        _value: &str,
+    ) -> Result<(), MemoryError> {
         Ok(())
     }
 
     /// Called before memory set
-    async fn on_memory_set(&self, _memory_name: &str, _key: &str, _value: &str) -> Result<(), MemoryError> {
+    async fn on_memory_set(
+        &self,
+        _memory_name: &str,
+        _key: &str,
+        _value: &str,
+    ) -> Result<(), MemoryError> {
         Ok(())
     }
 
     /// Called after memory set
-    async fn on_memory_set_done(&self, _memory_name: &str, _key: &str, _value: &str) -> Result<(), MemoryError> {
+    async fn on_memory_set_done(
+        &self,
+        _memory_name: &str,
+        _key: &str,
+        _value: &str,
+    ) -> Result<(), MemoryError> {
         Ok(())
     }
 
@@ -132,12 +171,22 @@ pub trait MemoryHook: Hook {
     }
 
     /// Called after memory delete
-    async fn on_memory_delete_done(&self, _memory_name: &str, _key: &str, _result: &str) -> Result<(), MemoryError> {
+    async fn on_memory_delete_done(
+        &self,
+        _memory_name: &str,
+        _key: &str,
+        _result: &str,
+    ) -> Result<(), MemoryError> {
         Ok(())
     }
 
     /// Called on memory error
-    async fn on_memory_error(&self, _memory_name: &str, _key: &str, _error: &str) -> Result<(), MemoryError> {
+    async fn on_memory_error(
+        &self,
+        _memory_name: &str,
+        _key: &str,
+        _error: &str,
+    ) -> Result<(), MemoryError> {
         Ok(())
     }
 }
@@ -146,19 +195,33 @@ pub trait MemoryHook: Hook {
 #[async_trait]
 pub trait ProviderHook: Hook {
     /// Called before provider call
-    async fn on_provider_call(&self, _provider_name: &str, _request: &str) -> Result<(), ProviderError> {
+    async fn on_provider_call(
+        &self,
+        _provider_name: &str,
+        _request: &str,
+    ) -> Result<(), ProviderError> {
         Ok(())
-   }
+    }
 
     /// Called after provider response
-    async fn on_provider_response(&self, _provider_name: &str, _request: &str, _response: &str) -> Result<(), ProviderError> {
+    async fn on_provider_response(
+        &self,
+        _provider_name: &str,
+        _request: &str,
+        _response: &str,
+    ) -> Result<(), ProviderError> {
         Ok(())
-   }
+    }
 
     /// Called on provider error
-   async fn on_provider_error(&self, _provider_name: &str, _request: &str, _error: &str) -> Result<(), ProviderError> {
+    async fn on_provider_error(
+        &self,
+        _provider_name: &str,
+        _request: &str,
+        _error: &str,
+    ) -> Result<(), ProviderError> {
         Ok(())
-   }
+    }
 }
 
 /// Hook manager

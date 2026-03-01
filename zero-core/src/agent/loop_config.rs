@@ -2,7 +2,6 @@
 ///
 /// This structure controls the behavior of the Agent loop, including
 /// timeouts, iteration limits, and feature flags.
-
 use std::time::Duration;
 
 /// Configuration for the Agent loop execution

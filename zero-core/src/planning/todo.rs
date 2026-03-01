@@ -1,5 +1,4 @@
 /// Todo item and list management
-
 use serde::{Deserialize, Serialize};
 
 /// Todo item status

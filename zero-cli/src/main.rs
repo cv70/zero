@@ -1,11 +1,14 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
 
-use zero_core::agent::{AgentLoop, AgentLoopConfig, DefaultAgentLoop};
+use zero_core::agent::{AgentLoop, AgentLoopConfig, DefaultAgentLoop, StreamingAgentLoop};
 use zero_core::message::Message;
-use zero_core::provider::{AnthropicLoopProvider, LoopProvider, OllamaLoopProvider, OpenAILoopProvider};
+use zero_core::provider::{
+    AnthropicLoopProvider, LoopProvider, OllamaLoopProvider, OpenAILoopProvider, StreamEvent,
+    StreamingLoopProvider,
+};
 use zero_core::tool::{
     BashTool, EditFileTool, ReadFileTool, RegistryToolDispatcher, Tool, ToolDispatcher,
     ToolRegistry, WriteFileTool,
@@ -38,6 +41,14 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
+
+    /// Enable streaming output (Anthropic only)
+    #[arg(long)]
+    stream: bool,
+
+    /// Max context tokens before compaction (0 = disabled)
+    #[arg(long, default_value = "180000")]
+    max_context_tokens: usize,
 
     /// Prompt for single-shot mode (if provided, execute and exit)
     prompt: Option<String>,
@@ -102,7 +113,6 @@ fn build_tool_definitions(tools: &[Box<dyn Tool>], provider_name: &str) -> Vec<s
                     })
                 }
                 _ => {
-                    // Default to Anthropic format
                     serde_json::json!({
                         "name": meta.name,
                         "description": meta.description,
@@ -114,11 +124,14 @@ fn build_tool_definitions(tools: &[Box<dyn Tool>], provider_name: &str) -> Vec<s
         .collect()
 }
 
+/// Whether the provider supports streaming
+enum ProviderKind {
+    Standard(Arc<dyn LoopProvider>),
+    Streaming(Arc<dyn StreamingLoopProvider>),
+}
+
 /// Create the appropriate LoopProvider based on CLI arguments.
-fn create_provider(
-    cli: &Cli,
-    tool_defs: Vec<serde_json::Value>,
-) -> Result<(Arc<dyn LoopProvider>, String)> {
+fn create_provider(cli: &Cli, tool_defs: Vec<serde_json::Value>) -> Result<(ProviderKind, String)> {
     match cli.provider.as_str() {
         "anthropic" => {
             let api_key = resolve_api_key(&cli.api_key, "anthropic")?;
@@ -133,7 +146,18 @@ fn create_provider(
                 .model
                 .clone()
                 .unwrap_or_else(|| "claude-sonnet-4-20250514".to_string());
-            Ok((Arc::new(provider) as Arc<dyn LoopProvider>, model_name))
+
+            if cli.stream {
+                Ok((
+                    ProviderKind::Streaming(Arc::new(provider) as Arc<dyn StreamingLoopProvider>),
+                    model_name,
+                ))
+            } else {
+                Ok((
+                    ProviderKind::Standard(Arc::new(provider) as Arc<dyn LoopProvider>),
+                    model_name,
+                ))
+            }
         }
         "openai" => {
             let api_key = resolve_api_key(&cli.api_key, "openai")?;
@@ -144,11 +168,11 @@ fn create_provider(
             if let Some(ref system) = cli.system {
                 provider = provider.with_system_prompt(system);
             }
-            let model_name = cli
-                .model
-                .clone()
-                .unwrap_or_else(|| "gpt-4o".to_string());
-            Ok((Arc::new(provider) as Arc<dyn LoopProvider>, model_name))
+            let model_name = cli.model.clone().unwrap_or_else(|| "gpt-4o".to_string());
+            Ok((
+                ProviderKind::Standard(Arc::new(provider) as Arc<dyn LoopProvider>),
+                model_name,
+            ))
         }
         "ollama" => {
             let mut provider = OllamaLoopProvider::new().with_tools(tool_defs);
@@ -161,11 +185,11 @@ fn create_provider(
             if let Some(ref system) = cli.system {
                 provider = provider.with_system_prompt(system);
             }
-            let model_name = cli
-                .model
-                .clone()
-                .unwrap_or_else(|| "llama3.2".to_string());
-            Ok((Arc::new(provider) as Arc<dyn LoopProvider>, model_name))
+            let model_name = cli.model.clone().unwrap_or_else(|| "llama3.2".to_string());
+            Ok((
+                ProviderKind::Standard(Arc::new(provider) as Arc<dyn LoopProvider>),
+                model_name,
+            ))
         }
         other => Err(anyhow!(
             "Unknown provider '{}'. Supported: anthropic, openai, ollama",
@@ -174,14 +198,14 @@ fn create_provider(
     }
 }
 
-/// Print the final text response from the agent, extracting text blocks.
+/// Print the final text response from the agent.
 fn print_response(response: &str) {
     if !response.is_empty() {
         println!("{}", response);
     }
 }
 
-/// Run the agent in single-shot mode: send one prompt, print the result, exit.
+/// Run the agent in single-shot mode (non-streaming).
 async fn run_single_shot(
     agent_loop: &DefaultAgentLoop,
     config: &AgentLoopConfig,
@@ -196,7 +220,40 @@ async fn run_single_shot(
     Ok(())
 }
 
-/// Run the interactive REPL loop.
+/// Run the agent in single-shot mode (streaming).
+async fn run_single_shot_streaming(
+    agent_loop: &StreamingAgentLoop,
+    config: &AgentLoopConfig,
+    prompt: &str,
+) -> Result<()> {
+    let mut messages = vec![Message::user(prompt)];
+    let _response = agent_loop
+        .execute_streaming(&mut messages, config, |event| {
+            handle_stream_event(&event);
+        })
+        .await
+        .map_err(|e| anyhow!("Agent error: {}", e))?;
+    println!();
+    Ok(())
+}
+
+/// Handle a single streaming event for display.
+fn handle_stream_event(event: &StreamEvent) {
+    match event {
+        StreamEvent::TextDelta(text) => {
+            print!("{}", text);
+            let _ = io::stdout().flush();
+        }
+        StreamEvent::ToolUseStart { name, .. } => {
+            println!("\n[Tool: {}]", name);
+        }
+        StreamEvent::ContentBlockStop => {}
+        StreamEvent::ToolUseInputDelta(_) => {}
+        StreamEvent::MessageStop { .. } => {}
+    }
+}
+
+/// Run the interactive REPL loop (non-streaming).
 async fn run_repl(
     agent_loop: &DefaultAgentLoop,
     config: &AgentLoopConfig,
@@ -214,36 +271,27 @@ async fn run_repl(
     let mut messages: Vec<Message> = Vec::new();
 
     loop {
-        // Print prompt
         print!("> ");
         io::stdout().flush()?;
 
-        // Read a line from stdin
         let mut line = String::new();
         let bytes_read = stdin.lock().read_line(&mut line)?;
 
-        // Handle EOF (Ctrl-D)
         if bytes_read == 0 {
             println!();
             break;
         }
 
         let input = line.trim();
-
-        // Handle empty input
         if input.is_empty() {
             continue;
         }
-
-        // Handle exit commands
         if input == "exit" || input == "quit" {
             break;
         }
 
-        // Add user message
         messages.push(Message::user(input));
 
-        // Execute the agent loop
         println!("[Agent thinking...]");
         match agent_loop.execute(&mut messages, config).await {
             Ok(response) => {
@@ -252,8 +300,65 @@ async fn run_repl(
             }
             Err(e) => {
                 eprintln!("Error: {}", e);
-                // Remove the failed user message to keep history clean
-                // (the agent loop may have partially appended messages)
+                println!();
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Run the interactive REPL loop (streaming).
+async fn run_repl_streaming(
+    agent_loop: &StreamingAgentLoop,
+    config: &AgentLoopConfig,
+    provider_name: &str,
+    model_name: &str,
+) -> Result<()> {
+    println!(
+        "Zero Agent (provider: {}, model: {}, streaming: on)",
+        provider_name, model_name
+    );
+    println!("Type 'exit' or 'quit' to exit, Ctrl-C to cancel.");
+    println!();
+
+    let stdin = io::stdin();
+    let mut messages: Vec<Message> = Vec::new();
+
+    loop {
+        print!("> ");
+        io::stdout().flush()?;
+
+        let mut line = String::new();
+        let bytes_read = stdin.lock().read_line(&mut line)?;
+
+        if bytes_read == 0 {
+            println!();
+            break;
+        }
+
+        let input = line.trim();
+        if input.is_empty() {
+            continue;
+        }
+        if input == "exit" || input == "quit" {
+            break;
+        }
+
+        messages.push(Message::user(input));
+
+        match agent_loop
+            .execute_streaming(&mut messages, config, |event| {
+                handle_stream_event(&event);
+            })
+            .await
+        {
+            Ok(_) => {
+                println!();
+                println!();
+            }
+            Err(e) => {
+                eprintln!("\nError: {}", e);
                 println!();
             }
         }
@@ -266,7 +371,6 @@ async fn run_repl(
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Setup tracing
     setup_tracing(cli.verbose);
 
     // Create built-in tools for schema extraction
@@ -281,7 +385,7 @@ async fn main() -> Result<()> {
     let tool_defs = build_tool_definitions(&builtin_tools, &cli.provider);
 
     // Create provider
-    let (provider, model_name) = create_provider(&cli, tool_defs)?;
+    let (provider_kind, model_name) = create_provider(&cli, tool_defs)?;
     let provider_name = cli.provider.clone();
 
     // Register tools in the registry
@@ -291,12 +395,12 @@ async fn main() -> Result<()> {
     registry.register(Box::new(WriteFileTool)).await;
     registry.register(Box::new(EditFileTool)).await;
 
-    // Create dispatcher and agent loop
     let dispatcher = Arc::new(RegistryToolDispatcher::new(registry));
-    let agent_loop = DefaultAgentLoop::new(provider, dispatcher as Arc<dyn ToolDispatcher>);
 
     // Create loop config
-    let config = AgentLoopConfig::default().with_verbose_logging(cli.verbose);
+    let config = AgentLoopConfig::default()
+        .with_verbose_logging(cli.verbose)
+        .with_max_context_tokens(cli.max_context_tokens);
 
     // Handle Ctrl-C gracefully
     let ctrl_c = tokio::spawn(async {
@@ -305,23 +409,52 @@ async fn main() -> Result<()> {
             .expect("Failed to install Ctrl-C handler");
     });
 
-    // Run in single-shot or REPL mode
-    if let Some(ref prompt) = cli.prompt {
-        tokio::select! {
-            result = run_single_shot(&agent_loop, &config, prompt) => {
-                result?;
-            }
-            _ = ctrl_c => {
-                eprintln!("\nInterrupted.");
+    match provider_kind {
+        ProviderKind::Standard(provider) => {
+            let agent_loop = DefaultAgentLoop::new(provider, dispatcher as Arc<dyn ToolDispatcher>);
+
+            if let Some(ref prompt) = cli.prompt {
+                tokio::select! {
+                    result = run_single_shot(&agent_loop, &config, prompt) => {
+                        result?;
+                    }
+                    _ = ctrl_c => {
+                        eprintln!("\nInterrupted.");
+                    }
+                }
+            } else {
+                tokio::select! {
+                    result = run_repl(&agent_loop, &config, &provider_name, &model_name) => {
+                        result?;
+                    }
+                    _ = ctrl_c => {
+                        eprintln!("\nInterrupted.");
+                    }
+                }
             }
         }
-    } else {
-        tokio::select! {
-            result = run_repl(&agent_loop, &config, &provider_name, &model_name) => {
-                result?;
-            }
-            _ = ctrl_c => {
-                eprintln!("\nInterrupted.");
+        ProviderKind::Streaming(provider) => {
+            let agent_loop =
+                StreamingAgentLoop::new(provider, dispatcher as Arc<dyn ToolDispatcher>);
+
+            if let Some(ref prompt) = cli.prompt {
+                tokio::select! {
+                    result = run_single_shot_streaming(&agent_loop, &config, prompt) => {
+                        result?;
+                    }
+                    _ = ctrl_c => {
+                        eprintln!("\nInterrupted.");
+                    }
+                }
+            } else {
+                tokio::select! {
+                    result = run_repl_streaming(&agent_loop, &config, &provider_name, &model_name) => {
+                        result?;
+                    }
+                    _ = ctrl_c => {
+                        eprintln!("\nInterrupted.");
+                    }
+                }
             }
         }
     }

@@ -3,11 +3,10 @@
 /// This module provides two implementations:
 /// - `OllamaProvider`: Legacy `LLMProvider` implementation (simple string-in/string-out)
 /// - `OllamaLoopProvider`: Full `LoopProvider` implementation with tool calling support
-
 use crate::error::ProviderError;
 use crate::message::{ContentBlock, Message, ToolResultContent};
-use crate::provider::loop_provider::{LoopProvider, ProviderResponse};
 use crate::provider::LLMProvider;
+use crate::provider::loop_provider::{LoopProvider, ProviderResponse};
 use async_trait::async_trait;
 use serde::Deserialize;
 
@@ -166,8 +165,7 @@ impl OllamaLoopProvider {
                         .collect();
 
                     if !text_parts.is_empty() {
-                        message["content"] =
-                            serde_json::Value::String(text_parts.join(""));
+                        message["content"] = serde_json::Value::String(text_parts.join(""));
                     } else {
                         message["content"] = serde_json::Value::String(String::new());
                     }
@@ -176,16 +174,14 @@ impl OllamaLoopProvider {
                     let tool_calls: Vec<serde_json::Value> = content
                         .iter()
                         .filter_map(|block| match block {
-                            ContentBlock::ToolUse { id, name, input } => {
-                                Some(serde_json::json!({
-                                    "id": id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": name,
-                                        "arguments": input.to_string(),
-                                    }
-                                }))
-                            }
+                            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
+                                "id": id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": input.to_string(),
+                                }
+                            })),
                             _ => None,
                         })
                         .collect();
@@ -270,9 +266,7 @@ impl OllamaLoopProvider {
         if let Some(ref tool_calls) = body.message.tool_calls {
             for tc in tool_calls {
                 let input: serde_json::Value =
-                    serde_json::from_str(&tc.function.arguments).unwrap_or(
-                        serde_json::Value::Null,
-                    );
+                    serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Null);
                 content_blocks.push(ContentBlock::ToolUse {
                     id: tc.id.clone().unwrap_or_default(),
                     name: tc.function.name.clone(),
@@ -406,8 +400,7 @@ mod tests {
 
     #[test]
     fn test_build_messages_with_system_prompt() {
-        let provider = OllamaLoopProvider::new()
-            .with_system_prompt("You are helpful.");
+        let provider = OllamaLoopProvider::new().with_system_prompt("You are helpful.");
         let messages = vec![Message::user("Hello")];
         let result = provider.build_messages(&messages);
         assert_eq!(result.len(), 2);
@@ -480,8 +473,7 @@ mod tests {
 
     #[test]
     fn test_build_messages_full_conversation() {
-        let provider = OllamaLoopProvider::new()
-            .with_system_prompt("You are a coding assistant.");
+        let provider = OllamaLoopProvider::new().with_system_prompt("You are a coding assistant.");
         let messages = vec![
             Message::user("List files"),
             Message::assistant(vec![
@@ -692,14 +684,8 @@ mod tests {
             OllamaLoopProvider::map_stop_reason("tool_calls"),
             "tool_use"
         );
-        assert_eq!(
-            OllamaLoopProvider::map_stop_reason("length"),
-            "max_tokens"
-        );
-        assert_eq!(
-            OllamaLoopProvider::map_stop_reason("unknown"),
-            "unknown"
-        );
+        assert_eq!(OllamaLoopProvider::map_stop_reason("length"), "max_tokens");
+        assert_eq!(OllamaLoopProvider::map_stop_reason("unknown"), "unknown");
     }
 
     // ── JSON deserialization tests (simulating raw API responses) ─────────
@@ -767,7 +753,9 @@ mod tests {
             .with_model("mistral")
             .with_endpoint("http://myserver:11434")
             .with_system_prompt("Be concise.")
-            .with_tools(vec![json!({"type": "function", "function": {"name": "bash"}})]);
+            .with_tools(vec![
+                json!({"type": "function", "function": {"name": "bash"}}),
+            ]);
 
         assert_eq!(provider.model, "mistral");
         assert_eq!(provider.endpoint, "http://myserver:11434");
@@ -786,8 +774,7 @@ mod tests {
         let provider = OllamaLoopProvider::new();
         assert_eq!(provider.api_url(), "http://localhost:11434/api/chat");
 
-        let provider = OllamaLoopProvider::new()
-            .with_endpoint("http://myserver:8080");
+        let provider = OllamaLoopProvider::new().with_endpoint("http://myserver:8080");
         assert_eq!(provider.api_url(), "http://myserver:8080/api/chat");
     }
 

@@ -1,7 +1,6 @@
 /// Task data model
-
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{time::SystemTime, collections::HashMap};
 
 /// Task status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,11 +39,10 @@ pub struct Task {
 impl Task {
     /// Create a new task
     pub fn new(id: String, title: String, description: String) -> Self {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            .to_string();
+        let now = SystemTime::now();
+        let duration = now.duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or(std::time::Duration::from_secs(0));
+        let now = duration.as_secs().to_string();
         Self {
             id,
             title,
@@ -84,7 +82,11 @@ mod tests {
 
     #[test]
     fn test_create_task() {
-        let task = Task::new("1".to_string(), "Test".to_string(), "Description".to_string());
+        let task = Task::new(
+            "1".to_string(),
+            "Test".to_string(),
+            "Description".to_string(),
+        );
         assert_eq!(task.id, "1");
         assert_eq!(task.status, TaskStatus::Pending);
     }

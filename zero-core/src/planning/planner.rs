@@ -1,5 +1,4 @@
 /// Agent planner for task decomposition
-
 use crate::planning::todo::TodoList;
 use async_trait::async_trait;
 

@@ -1,8 +1,10 @@
-/// Channel module for message channels
-pub mod registry;
+// Channel module for message channels
+// pub mod registry;
+// pub mod r#trait;
+// pub mod queue;
+// pub mod persistence;
 
-pub use crate::channel::registry::{ChannelRegistry, ChannelState, DefaultChannelRegistry};
-pub use async_trait::async_trait;
+use async_trait::async_trait;
 use thiserror::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,13 +18,17 @@ pub struct Message {
     pub content: String,
     pub timestamp: i64,
     pub metadata: HashMap<String, String>,
-    pub attachments: Vec<MediaInput>,
 }
 
 impl Message {
-    pub fn new(from: impl Into<String>, content: impl Into<String>) -> Self {
+    pub fn new(from: impl Into<String>, to: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
+            from: from.into(),
+            to: to.into(),
+            content: content.into(),
+            timestamp: 0,
+            metadata: HashMap::new(),
         }
     }
 }
@@ -30,18 +36,28 @@ impl Message {
 /// Channel Trait
 #[async_trait]
 pub trait Channel: Send + Sync {
-    /// Channel 名称
     fn name(&self) -> &str;
-
-    /// 发送消息
     async fn send(&self, msg: &Message) -> Result<(), ChannelError>;
-
-    /// 接收消息（可选）
     async fn receive(&self) -> Result<Option<Message>, ChannelError>;
-
-    /// 连接
     async fn connect(&self) -> Result<(), ChannelError>;
-
-    /// 断开
     async fn disconnect(&self) -> Result<(), ChannelError>;
+}
+
+/// Channel error
+#[derive(Error, Debug)]
+pub enum ChannelError {
+    #[error("Channel not found: {0}")]
+    ChannelNotFound(String),
+    #[error("Channel already exists: {0}")]
+    ChannelAlreadyExists(String),
+    #[error("Send failed: {0}")]
+    SendFailed(String),
+    #[error("Receive failed: {0}")]
+    ReceiveFailed(String),
+}
+
+impl Default for ChannelError {
+    fn default() -> Self {
+        ChannelError::SendFailed("default error".to_string())
+    }
 }

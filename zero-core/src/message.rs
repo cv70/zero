@@ -3,7 +3,6 @@
 /// This module defines the message types used throughout the Agent loop.
 /// Each message represents a turn in the conversation between the user, the Agent,
 /// and various tools.
-
 use serde::{Deserialize, Serialize};
 
 /// Represents a single message in the Agent conversation.
@@ -23,9 +22,7 @@ pub enum Message {
     Assistant { content: Vec<ContentBlock> },
 
     /// Tool execution result
-    ToolResult {
-        content: Vec<ToolResultContent>,
-    },
+    ToolResult { content: Vec<ToolResultContent> },
 }
 
 /// Content blocks within an Assistant message
@@ -147,17 +144,11 @@ impl Message {
 impl ContentBlock {
     /// Create a new text block
     pub fn text(text: impl Into<String>) -> Self {
-        ContentBlock::Text {
-            text: text.into(),
-        }
+        ContentBlock::Text { text: text.into() }
     }
 
     /// Create a new tool use block
-    pub fn tool_use(
-        id: String,
-        name: String,
-        input: serde_json::Value,
-    ) -> Self {
+    pub fn tool_use(id: String, name: String, input: serde_json::Value) -> Self {
         ContentBlock::ToolUse { id, name, input }
     }
 

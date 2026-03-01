@@ -1,7 +1,6 @@
-/// Task storage abstraction
-
-use crate::task::model::Task;
 use crate::error::ToolError;
+/// Task storage abstraction
+use crate::task::model::Task;
 
 /// Task storage trait
 pub trait TaskStore: Send + Sync {
