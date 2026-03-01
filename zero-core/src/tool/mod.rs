@@ -7,7 +7,7 @@ pub mod builtins;
 pub use r#trait::{Tool, ToolOutput, ToolMetadata, ToolContext};
 pub use metadata::ToolDefinition;
 pub use registry::ToolRegistry;
-pub use dispatcher::{ToolDispatcher, SimpleToolDispatcher};
+pub use dispatcher::{ToolDispatcher, SimpleToolDispatcher, RegistryToolDispatcher};
 pub use builtins::{BashTool, ReadFileTool, WriteFileTool, EditFileTool};
 
 /// Tool call request

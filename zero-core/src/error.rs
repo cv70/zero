@@ -46,6 +46,8 @@ pub enum ToolError {
     InvalidInput(String),
     #[error("Not supported: {0}")]
     NotSupported(String),
+    #[error("Tool not found: {0}")]
+    NotFound(String),
 }
 
 #[derive(Error, Debug)]
