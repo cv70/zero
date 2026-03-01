@@ -1,0 +1,153 @@
+/// High-level Provider interface for Agent Loop
+///
+/// This module provides a simplified provider interface tailored for the Agent loop,
+/// abstracted away from the low-level API details of different LLM providers.
+
+use crate::message::{Message, ContentBlock};
+use crate::error::ProviderError;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+
+/// Response from LLM provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderResponse {
+    /// Content blocks in the response
+    pub content: Vec<ContentBlock>,
+
+    /// Stop reason: "end_turn", "tool_use", "max_tokens", etc.
+    pub stop_reason: String,
+}
+
+impl ProviderResponse {
+    /// Create a new provider response
+    pub fn new(content: Vec<ContentBlock>, stop_reason: impl Into<String>) -> Self {
+        Self {
+            content,
+            stop_reason: stop_reason.into(),
+        }
+    }
+
+    /// Check if response contains tool use
+    pub fn has_tool_use(&self) -> bool {
+        self.content.iter().any(|block| block.is_tool_use())
+    }
+
+    /// Get all tool use blocks
+    pub fn tool_uses(&self) -> Vec<(String, String, serde_json::Value)> {
+        self.content
+            .iter()
+            .filter_map(|block| match block {
+                ContentBlock::ToolUse { id, name, input } => {
+                    Some((id.clone(), name.clone(), input.clone()))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Get first text block if present
+    pub fn first_text(&self) -> Option<String> {
+        self.content.iter().find_map(|block| match block {
+            ContentBlock::Text { text } => Some(text.clone()),
+            _ => None,
+        })
+    }
+
+    /// Get all text blocks
+    pub fn all_text(&self) -> Vec<String> {
+        self.content
+            .iter()
+            .filter_map(|block| match block {
+                ContentBlock::Text { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// High-level provider interface for Agent Loop
+///
+/// This trait represents a simplified view of an LLM provider,
+/// focused on the needs of the Agent loop rather than raw API details.
+#[async_trait]
+pub trait LoopProvider: Send + Sync {
+    /// Get provider name
+    fn name(&self) -> &str;
+
+    /// Complete a conversation with the LLM
+    ///
+    /// The provider receives the full message history and returns
+    /// a response with content blocks and stop reason.
+    async fn complete(&self, messages: &[Message]) -> Result<ProviderResponse, ProviderError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_response_creation() {
+        let response = ProviderResponse::new(
+            vec![ContentBlock::text("Hello")],
+            "end_turn",
+        );
+        assert_eq!(response.stop_reason, "end_turn");
+        assert!(!response.has_tool_use());
+    }
+
+    #[test]
+    fn test_has_tool_use() {
+        let response = ProviderResponse::new(
+            vec![ContentBlock::tool_use(
+                "1".to_string(),
+                "bash".to_string(),
+                serde_json::json!({}),
+            )],
+            "tool_use",
+        );
+        assert!(response.has_tool_use());
+    }
+
+    #[test]
+    fn test_tool_uses_extraction() {
+        let response = ProviderResponse::new(
+            vec![
+                ContentBlock::tool_use(
+                    "1".to_string(),
+                    "bash".to_string(),
+                    serde_json::json!({"cmd": "ls"}),
+                ),
+                ContentBlock::tool_use(
+                    "2".to_string(),
+                    "read".to_string(),
+                    serde_json::json!({}),
+                ),
+            ],
+            "tool_use",
+        );
+
+        let uses = response.tool_uses();
+        assert_eq!(uses.len(), 2);
+        assert_eq!(uses[0].0, "1");
+        assert_eq!(uses[0].1, "bash");
+    }
+
+    #[test]
+    fn test_text_extraction() {
+        let response = ProviderResponse::new(
+            vec![
+                ContentBlock::text("First"),
+                ContentBlock::text("Second"),
+                ContentBlock::tool_use(
+                    "1".to_string(),
+                    "bash".to_string(),
+                    serde_json::json!({}),
+                ),
+            ],
+            "mixed",
+        );
+
+        assert_eq!(response.first_text(), Some("First".to_string()));
+        assert_eq!(response.all_text(), vec!["First", "Second"]);
+    }
+}

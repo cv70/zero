@@ -1,35 +1,35 @@
-use std::sync::Arc;
+/// Ollama LLM provider
 
-use crate::provider::{adapter::{OllamaAdapter, LLMAdapter}, LLMProvider, ProviderError, ProviderKind};
-use crate::provider::health::{ProviderHealth, ProviderHealthError};
 use crate::provider::LLMProvider;
-use async_trait::async_trait;
-use reqwest::Client;
-use crate::provider::adapter::RateLimiter;
+use crate::error::ProviderError;
 
+/// Ollama provider
 pub struct OllamaProvider {
-    pub adapter: Arc<OllamaAdapter>,
+    endpoint: String,
 }
 
 impl OllamaProvider {
     pub fn new(endpoint: String) -> Self {
-        let adapter = OllamaAdapter {
-            client: Client::new(),
-            endpoint,
-        };
-        OllamaProvider { adapter: Arc::new(adapter) }
+        Self { endpoint }
     }
 }
 
-#[async_trait]
-impl crate::provider::LLMProvider for OllamaProvider {
-    fn id(&self) -> &'static str { "ollama" }
-    fn kind(&self) -> ProviderKind { ProviderKind::Ollama }
-    async fn generate(&self, prompt: &str, model: &str) -> Result<String, ProviderError> {
-        let res = self.adapter.generate(prompt, model).await.map_err(ProviderError::Adapter)?;
-        Ok(res)
+#[async_trait::async_trait]
+impl LLMProvider for OllamaProvider {
+    fn name(&self) -> &str {
+        "ollama"
     }
-    async fn health(&self) -> Result<ProviderHealth, ProviderHealthError> {
-        Ok(ProviderHealth { healthy: true, details: "OLLAMA_OK".to_string() })
+
+    fn capabilities(&self) -> crate::provider::ModelCapability {
+        crate::provider::ModelCapability::TextOnly
+    }
+
+    fn available_models(&self) -> Vec<String> {
+        vec!["llama2".to_string()]
+    }
+
+    async fn complete(&self, prompt: &str, _opts: crate::provider::CompleteOpts) -> Result<String, ProviderError> {
+        // Placeholder
+        Ok(format!("Response to: {}", prompt))
     }
 }

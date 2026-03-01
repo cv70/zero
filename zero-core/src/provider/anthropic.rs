@@ -1,36 +1,35 @@
-use std::sync::Arc;
+/// Anthropic LLM provider
 
-use crate::provider::{adapter::{AnthropicAdapter, LLMAdapter}, LLMProvider, ProviderError, ProviderKind};
-use crate::provider::health::{ProviderHealth, ProviderHealthError};
 use crate::provider::LLMProvider;
-use async_trait::async_trait;
-use reqwest::Client;
-use crate::provider::adapter::RateLimiter;
+use crate::error::ProviderError;
 
+/// Anthropic provider
 pub struct AnthropicProvider {
-    pub adapter: Arc<AnthropicAdapter>,
+    api_key: String,
 }
 
 impl AnthropicProvider {
     pub fn new(api_key: String) -> Self {
-        let adapter = AnthropicAdapter {
-            client: Client::new(),
-            api_key,
-            base_url: "https://api.anthropic.com/v1".to_string(),
-        };
-        AnthropicProvider { adapter: Arc::new(adapter) }
+        Self { api_key }
     }
 }
 
-#[async_trait]
-impl crate::provider::LLMProvider for AnthropicProvider {
-    fn id(&self) -> &'static str { "anthropic" }
-    fn kind(&self) -> ProviderKind { ProviderKind::Anthropic }
-    async fn generate(&self, prompt: &str, model: &str) -> Result<String, ProviderError> {
-        let res = self.adapter.generate(prompt, model).await.map_err(ProviderError::Adapter)?;
-        Ok(res)
+#[async_trait::async_trait]
+impl LLMProvider for AnthropicProvider {
+    fn name(&self) -> &str {
+        "anthropic"
     }
-    async fn health(&self) -> Result<ProviderHealth, ProviderHealthError> {
-        Ok(ProviderHealth { healthy: true, details: "ANTHROPIC_OK".to_string() })
+
+    fn capabilities(&self) -> crate::provider::ModelCapability {
+        crate::provider::ModelCapability::Multimodal
+    }
+
+    fn available_models(&self) -> Vec<String> {
+        vec!["claude-3-opus".to_string()]
+    }
+
+    async fn complete(&self, prompt: &str, _opts: crate::provider::CompleteOpts) -> Result<String, ProviderError> {
+        // Placeholder
+        Ok(format!("Response to: {}", prompt))
     }
 }

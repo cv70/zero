@@ -24,6 +24,18 @@ pub enum AgentError {
     ExecutionFailed(String),
     #[error("Context error: {0}")]
     ContextError(String),
+    #[error("Max iterations exceeded: {0}")]
+    MaxIterationsExceeded(usize),
+    #[error("Provider timeout")]
+    ProviderTimeout,
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    #[error("Tool timeout")]
+    ToolTimeout,
+    #[error("Tool error: {0}")]
+    ToolErr(#[from] ToolError),
 }
 
 #[derive(Error, Debug)]
@@ -54,6 +66,8 @@ pub enum ProviderError {
     RateLimited(String),
     #[error("Invalid response: {0}")]
     InvalidResponse(String),
+    #[error("API error: {0}")]
+    ApiError(String),
 }
 
 #[derive(Error, Debug)]

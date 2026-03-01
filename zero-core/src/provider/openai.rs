@@ -1,44 +1,35 @@
-use std::sync::Arc;
+/// OpenAI LLM provider
 
-use crate::provider::{adapter::{OpenAIAdapter, LLMAdapter}, LLMProvider, ProviderError};
-use crate::provider::health::{ProviderHealth, ProviderHealthError};
-use async_trait::async_trait;
-use reqwest::Client;
-use crate::provider::adapter::RateLimiter;
+use crate::provider::LLMProvider;
+use crate::error::ProviderError;
 
-// OpenAI specific provider implementing LLMProvider
+/// OpenAI provider
 pub struct OpenAIProvider {
-    pub adapter: Arc<OpenAIAdapter>,
+    api_key: String,
 }
 
 impl OpenAIProvider {
     pub fn new(api_key: String) -> Self {
-        let adapter = OpenAIAdapter {
-            client: Client::new(),
-            api_key,
-            base_url: "https://api.openai.com/v1".to_string(),
-            rate_limiter: RateLimiter::new(60, 60),
-        };
-        OpenAIProvider { adapter: Arc::new(adapter) }
+        Self { api_key }
     }
 }
 
-#[async_trait]
-impl crate::provider::LLMProvider for OpenAIProvider {
-    fn id(&self) -> &'static str {
+#[async_trait::async_trait]
+impl LLMProvider for OpenAIProvider {
+    fn name(&self) -> &str {
         "openai"
     }
 
-    fn kind(&self) -> crate::provider::ProviderKind {
-        crate::provider::ProviderKind::OpenAI
+    fn capabilities(&self) -> crate::provider::ModelCapability {
+        crate::provider::ModelCapability::Multimodal
     }
 
-    async fn generate(&self, prompt: &str, model: &str) -> Result<String, ProviderError> {
-        let res = self.adapter.generate(prompt, model).await.map_err(ProviderError::Adapter)?;
-        Ok(res)
+    fn available_models(&self) -> Vec<String> {
+        vec!["gpt-4".to_string()]
     }
 
-    async fn health(&self) -> Result<ProviderHealth, ProviderHealthError> {
-        Ok(ProviderHealth { healthy: true, details: "OPENAI_OK".to_string() })
+    async fn complete(&self, prompt: &str, _opts: crate::provider::CompleteOpts) -> Result<String, ProviderError> {
+        // Placeholder
+        Ok(format!("Response to: {}", prompt))
     }
 }
