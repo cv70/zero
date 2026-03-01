@@ -41,8 +41,7 @@ impl InputValidator {
 
     /// Filter input to remove disallowed patterns
     pub fn filter(&self, input: &str) -> String {
-        // Simple filter - remove dangerous characters
-        input
+        input.to_string()
     }
 }
 

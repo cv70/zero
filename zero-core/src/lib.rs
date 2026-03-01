@@ -8,8 +8,9 @@ pub mod channel;
 pub mod task;
 pub mod planning;
 pub mod team;
+pub mod hooks;
+pub mod config;
+pub mod security;
 
 pub use error::{ZeroError, AgentError, ToolError, MemoryError, ProviderError, ChannelError};
 pub use message::{Message, ContentBlock};
-
-pub mod hooks;

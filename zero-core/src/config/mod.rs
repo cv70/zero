@@ -7,19 +7,8 @@ pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
 pub use hooks::ConfigHooks;
 
-/// Configuration trait for modules
-pub trait Configurable: Send + Sync {
-    fn config(&self) -> &Self::Config;
-    fn config_mut(&mut self) -> &mut Self::Config;
-}
-
-/// Configurable trait with type configuration
-pub trait ConfigurableWith<T: Configurable> {
-    fn with_config(config: T) -> Self;
-}
-
 /// Configuration error
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("Config not found: {0}")]
     NotFound(String),
@@ -30,7 +19,7 @@ pub enum ConfigError {
     #[error("Config save failed: {0}")]
     SaveFailed(String),
     #[error("Config format error: {0}")]
-    FormatError(#[from] serde_json::Error),
+    FormatError(String),
 }
 
 /// Result type for config operations
