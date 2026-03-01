@@ -1,5 +1,7 @@
 # Trait-Driven Architecture
 
+> **Back to Home**: [README.md](../README.md)
+
 Zero's entire system is built on **Trait-First Design** - a philosophy where all core capabilities are defined as traits rather than concrete implementations. This enables maximum flexibility, testability, and extensibility.
 
 ## Table of Contents

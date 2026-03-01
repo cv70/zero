@@ -1,5 +1,7 @@
 # API 参考
 
+> **返回首页**: [README.zh-CN.md](../README.zh-CN.md)
+
 Zero Core 框架的完整 API 文档。本指南涵盖所有 Trait 定义、方法、类型定义和错误处理。
 
 ## 目录

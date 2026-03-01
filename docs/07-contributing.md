@@ -1,5 +1,7 @@
 # Contributing to Zero
 
+> **Back to Home**: [README.md](../README.md)
+
 Welcome! We're excited that you want to contribute to Zero. This guide will help you get started with the development process and make meaningful contributions to the project.
 
 ## Table of Contents

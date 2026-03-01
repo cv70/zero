@@ -1,5 +1,7 @@
 # Code Examples
 
+> **Back to Home**: [README.md](../README.md)
+
 Welcome to the Zero Core examples! These examples demonstrate the key concepts of the Agent framework, from basic Agent implementation to multi-Agent coordination. Each example builds upon previous concepts and can be run independently.
 
 ## Overview
@@ -290,8 +292,8 @@ cargo run --example 03-multi-agent
 
 After exploring these examples, you're ready to:
 
-1. **Read the API Documentation**: Check `docs/01-getting-started.md` for detailed API information
-2. **Explore Advanced Features**: Review `docs/02-core-concepts.md` for advanced agent execution patterns
+1. **Read the API Documentation**: Check [05-api-reference.md](./05-api-reference.md) for detailed API information
+2. **Explore Advanced Features**: Review [03-trait-architecture.md](./03-trait-architecture.md) for advanced architecture patterns
 3. **Implement Your Own Agents**: Use these examples as templates for your custom agents and tools
 4. **Build Multi-Agent Systems**: Combine multiple agents to solve complex problems
 

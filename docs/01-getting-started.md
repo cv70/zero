@@ -1,5 +1,7 @@
 # Getting Started with Zero
 
+> **Back to Home**: [README.md](../README.md)
+
 Welcome to the Zero framework! This guide will help you set up the project and run your first program in just 5 minutes.
 
 ## Table of Contents

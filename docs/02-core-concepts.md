@@ -1,5 +1,7 @@
 # Core Concepts
 
+> **Back to Home**: [README.md](../README.md)
+
 Welcome to the core concepts guide! This document explores the fundamental design principles that make Zero a powerful and flexible Agent framework. Whether you're planning to extend Zero or simply understand how it works, these concepts will provide the foundation you need.
 
 ## Table of Contents
