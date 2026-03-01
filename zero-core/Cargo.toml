@@ -16,3 +16,15 @@ uuid.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+[[example]]
+name = "01-simple-agent"
+path = "../examples/01-simple-agent.rs"
+
+[[example]]
+name = "02-custom-tool"
+path = "../examples/02-custom-tool.rs"
+
+[[example]]
+name = "03-multi-agent"
+path = "../examples/03-multi-agent.rs"
