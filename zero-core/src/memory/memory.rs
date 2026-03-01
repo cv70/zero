@@ -21,7 +21,12 @@ pub trait GlobalSharedMemory: Send + Sync {
     async fn retrieve(&self, namespace: &str, key: &str) -> Result<Option<String>, MemoryError>;
 
     /// 搜索记忆
-    async fn search(&self, namespace: &str, query: &str, limit: usize) -> Result<Vec<MemoryEntry>, MemoryError>;
+    async fn search(
+        &self,
+        namespace: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<MemoryEntry>, MemoryError>;
 
     /// 删除记忆
     async fn delete(&self, namespace: &str, key: &str) -> Result<(), MemoryError>;

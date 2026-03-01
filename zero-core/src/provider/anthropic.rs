@@ -3,11 +3,12 @@
 /// This module provides two implementations:
 /// - `AnthropicProvider`: Legacy `LLMProvider` implementation (simple string-in/string-out)
 /// - `AnthropicLoopProvider`: Full `LoopProvider` implementation with tool calling support
-
 use crate::error::ProviderError;
 use crate::message::{ContentBlock, Message, ToolResultContent};
-use crate::provider::loop_provider::{LoopProvider, ProviderResponse, StreamEvent, StreamingLoopProvider};
 use crate::provider::LLMProvider;
+use crate::provider::loop_provider::{
+    LoopProvider, ProviderResponse, StreamEvent, StreamingLoopProvider,
+};
 use async_trait::async_trait;
 use futures_core::Stream;
 use serde::Deserialize;
@@ -368,9 +369,7 @@ fn parse_sse_data(event_type: &str, data: &str) -> Option<Result<StreamEvent, Pr
             let v: serde_json::Value = serde_json::from_str(data).ok()?;
             let delta = v.get("delta")?;
             let stop_reason = delta.get("stop_reason")?.as_str()?.to_string();
-            Some(Ok(StreamEvent::MessageStop {
-                stop_reason,
-            }))
+            Some(Ok(StreamEvent::MessageStop { stop_reason }))
         }
         "message_stop" => {
             // message_stop is a terminal event; the stop_reason was already
@@ -463,8 +462,7 @@ impl StreamingLoopProvider for AnthropicLoopProvider {
                             }
 
                             if !current_event_type.is_empty() && !data_line.is_empty() {
-                                if let Some(event) =
-                                    parse_sse_data(&current_event_type, &data_line)
+                                if let Some(event) = parse_sse_data(&current_event_type, &data_line)
                                 {
                                     if tx.send(event).await.is_err() {
                                         return; // receiver dropped
@@ -472,9 +470,7 @@ impl StreamingLoopProvider for AnthropicLoopProvider {
                                 }
                             } else if !current_event_type.is_empty() {
                                 // Events like content_block_stop may have no data payload
-                                if let Some(event) =
-                                    parse_sse_data(&current_event_type, "{}")
-                                {
+                                if let Some(event) = parse_sse_data(&current_event_type, "{}") {
                                     if tx.send(event).await.is_err() {
                                         return;
                                     }
@@ -635,7 +631,9 @@ mod tests {
                 ),
             ]),
             Message::tool_result("toolu_1".to_string(), "README.md\nsrc/"),
-            Message::assistant(vec![ContentBlock::text("Here are the files: README.md and src/")]),
+            Message::assistant(vec![ContentBlock::text(
+                "Here are the files: README.md and src/",
+            )]),
         ];
 
         let result = AnthropicLoopProvider::build_messages(&messages);
@@ -723,8 +721,7 @@ mod tests {
             }
         })];
 
-        let provider = AnthropicLoopProvider::new("test-key".to_string())
-            .with_tools(tools.clone());
+        let provider = AnthropicLoopProvider::new("test-key".to_string()).with_tools(tools.clone());
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
@@ -737,8 +734,8 @@ mod tests {
 
     #[test]
     fn test_build_request_body_custom_model() {
-        let provider = AnthropicLoopProvider::new("test-key".to_string())
-            .with_model("claude-opus-4-20250514");
+        let provider =
+            AnthropicLoopProvider::new("test-key".to_string()).with_model("claude-opus-4-20250514");
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
@@ -747,8 +744,7 @@ mod tests {
 
     #[test]
     fn test_build_request_body_custom_max_tokens() {
-        let provider =
-            AnthropicLoopProvider::new("test-key".to_string()).with_max_tokens(4096);
+        let provider = AnthropicLoopProvider::new("test-key".to_string()).with_max_tokens(4096);
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
@@ -774,7 +770,10 @@ mod tests {
         assert_eq!(result.stop_reason, "end_turn");
         assert_eq!(result.content.len(), 1);
         assert!(!result.has_tool_use());
-        assert_eq!(result.first_text(), Some("Hello! How can I help?".to_string()));
+        assert_eq!(
+            result.first_text(),
+            Some("Hello! How can I help?".to_string())
+        );
     }
 
     #[test]
@@ -954,10 +953,7 @@ mod tests {
         let result = AnthropicLoopProvider::parse_response(&api_response).unwrap();
 
         assert_eq!(result.stop_reason, "end_turn");
-        assert_eq!(
-            result.first_text(),
-            Some("Hello! I'm Claude.".to_string())
-        );
+        assert_eq!(result.first_text(), Some("Hello! I'm Claude.".to_string()));
         assert!(!result.has_tool_use());
     }
 
@@ -1117,7 +1113,10 @@ mod tests {
     fn test_parse_sse_content_block_stop() {
         let result = parse_sse_data("content_block_stop", "{}");
         assert!(result.is_some());
-        assert!(matches!(result.unwrap().unwrap(), StreamEvent::ContentBlockStop));
+        assert!(matches!(
+            result.unwrap().unwrap(),
+            StreamEvent::ContentBlockStop
+        ));
     }
 
     #[test]
@@ -1151,7 +1150,8 @@ mod tests {
 
     #[test]
     fn test_parse_sse_text_block_start_ignored() {
-        let data = r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#;
+        let data =
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#;
         let result = parse_sse_data("content_block_start", data);
         assert!(result.is_none());
     }

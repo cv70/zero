@@ -1,9 +1,9 @@
-/// Bash execution tool
-
-use crate::tool::r#trait::{Tool, ToolMetadata, ToolContext, ToolOutput};
 use crate::error::ToolError;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use crate::security::command_safety::classify_command;
+use crate::security::command_safety::CommandSafety;
+use crate::tool::r#trait::{Tool, ToolContext, ToolMetadata, ToolOutput};
+use serde::Deserialize;
+use serde_json::json;
 use std::process::Command;
 
 /// Bash tool for executing shell commands
@@ -26,9 +26,7 @@ impl BashTool {
 
     /// Check if command is dangerous
     fn is_dangerous(&self, command: &str) -> bool {
-        self.blocked_patterns
-            .iter()
-            .any(|pattern| command.contains(pattern))
+        matches!(classify_command(command), CommandSafety::Dangerous(_))
     }
 }
 
@@ -60,27 +58,25 @@ impl Tool for BashTool {
             command: String,
         }
 
-        let args: Args = serde_json::from_str(input)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let args: Args =
+            serde_json::from_str(input).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
-        // Security check
-        if self.is_dangerous(&args.command) {
+        // Security check using the robust command safety classifier
+        if matches!(classify_command(&args.command), CommandSafety::Dangerous(_)) {
             return Err(ToolError::ExecutionFailed(
                 "Dangerous command blocked".to_string(),
             ));
         }
 
         // Execute command
-        match Command::new("sh")
-            .arg("-c")
-            .arg(&args.command)
-            .output()
-        {
+        match Command::new("sh").arg("-c").arg(&args.command).output() {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 let result = format!("{}{}", stdout, stderr);
-                Ok(ToolOutput::text(result.chars().take(50000).collect::<String>()))
+                Ok(ToolOutput::text(
+                    result.chars().take(50000).collect::<String>(),
+                ))
             }
             Err(e) => Err(ToolError::ExecutionFailed(format!(
                 "Command execution failed: {}",

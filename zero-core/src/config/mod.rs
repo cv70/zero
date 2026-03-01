@@ -1,11 +1,11 @@
 // Config module
+pub mod hooks;
 pub mod loader;
 pub mod validator;
-pub mod hooks;
 
+pub use hooks::ConfigHooks;
 pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
-pub use hooks::ConfigHooks;
 
 /// Configuration error
 #[derive(Debug, thiserror::Error)]

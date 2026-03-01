@@ -3,11 +3,10 @@
 /// This module provides two implementations:
 /// - `OpenAIProvider`: Legacy `LLMProvider` implementation (simple string-in/string-out)
 /// - `OpenAILoopProvider`: Full `LoopProvider` implementation with tool calling support
-
 use crate::error::ProviderError;
 use crate::message::{ContentBlock, Message, ToolResultContent};
-use crate::provider::loop_provider::{LoopProvider, ProviderResponse};
 use crate::provider::LLMProvider;
+use crate::provider::loop_provider::{LoopProvider, ProviderResponse};
 use async_trait::async_trait;
 use serde::Deserialize;
 
@@ -158,8 +157,7 @@ impl OpenAILoopProvider {
                         .collect();
 
                     if !text_parts.is_empty() {
-                        message["content"] =
-                            serde_json::Value::String(text_parts.join(""));
+                        message["content"] = serde_json::Value::String(text_parts.join(""));
                     } else {
                         message["content"] = serde_json::Value::Null;
                     }
@@ -168,16 +166,14 @@ impl OpenAILoopProvider {
                     let tool_calls: Vec<serde_json::Value> = content
                         .iter()
                         .filter_map(|block| match block {
-                            ContentBlock::ToolUse { id, name, input } => {
-                                Some(serde_json::json!({
-                                    "id": id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": name,
-                                        "arguments": input.to_string(),
-                                    }
-                                }))
-                            }
+                            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
+                                "id": id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": input.to_string(),
+                                }
+                            })),
                             _ => None,
                         })
                         .collect();
@@ -241,18 +237,17 @@ impl OpenAILoopProvider {
 
     /// Parse the API response body into a `ProviderResponse`.
     fn parse_response(body: &ApiResponse) -> Result<ProviderResponse, ProviderError> {
-        let choice = body.choices.first().ok_or_else(|| {
-            ProviderError::InvalidResponse("No choices in response".to_string())
-        })?;
+        let choice = body
+            .choices
+            .first()
+            .ok_or_else(|| ProviderError::InvalidResponse("No choices in response".to_string()))?;
 
         let mut content_blocks: Vec<ContentBlock> = Vec::new();
 
         // Add text content if present
         if let Some(ref text) = choice.message.content {
             if !text.is_empty() {
-                content_blocks.push(ContentBlock::Text {
-                    text: text.clone(),
-                });
+                content_blocks.push(ContentBlock::Text { text: text.clone() });
             }
         }
 
@@ -260,9 +255,7 @@ impl OpenAILoopProvider {
         if let Some(ref tool_calls) = choice.message.tool_calls {
             for tc in tool_calls {
                 let input: serde_json::Value =
-                    serde_json::from_str(&tc.function.arguments).unwrap_or(
-                        serde_json::Value::Null,
-                    );
+                    serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Null);
                 content_blocks.push(ContentBlock::ToolUse {
                     id: tc.id.clone(),
                     name: tc.function.name.clone(),
@@ -392,8 +385,8 @@ mod tests {
 
     #[test]
     fn test_build_messages_with_system_prompt() {
-        let provider = OpenAILoopProvider::new("test-key".to_string())
-            .with_system_prompt("You are helpful.");
+        let provider =
+            OpenAILoopProvider::new("test-key".to_string()).with_system_prompt("You are helpful.");
         let messages = vec![Message::user("Hello")];
         let result = provider.build_messages(&messages);
         // System prompt + user message
@@ -438,8 +431,7 @@ mod tests {
         assert_eq!(tool_calls[0]["function"]["name"], "bash");
         // arguments is a JSON string
         let args: serde_json::Value =
-            serde_json::from_str(tool_calls[0]["function"]["arguments"].as_str().unwrap())
-                .unwrap();
+            serde_json::from_str(tool_calls[0]["function"]["arguments"].as_str().unwrap()).unwrap();
         assert_eq!(args["command"], "ls");
     }
 
@@ -542,8 +534,7 @@ mod tests {
 
     #[test]
     fn test_build_request_body_custom_model() {
-        let provider =
-            OpenAILoopProvider::new("test-key".to_string()).with_model("gpt-4-turbo");
+        let provider = OpenAILoopProvider::new("test-key".to_string()).with_model("gpt-4-turbo");
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
@@ -552,8 +543,7 @@ mod tests {
 
     #[test]
     fn test_build_request_body_custom_max_tokens() {
-        let provider =
-            OpenAILoopProvider::new("test-key".to_string()).with_max_tokens(8192);
+        let provider = OpenAILoopProvider::new("test-key".to_string()).with_max_tokens(8192);
         let messages = vec![Message::user("Hello")];
         let body = provider.build_request_body(&messages);
 
@@ -653,9 +643,7 @@ mod tests {
 
     #[test]
     fn test_parse_response_no_choices() {
-        let api_response = ApiResponse {
-            choices: vec![],
-        };
+        let api_response = ApiResponse { choices: vec![] };
 
         let result = OpenAILoopProvider::parse_response(&api_response);
         assert!(result.is_err());
@@ -703,14 +691,8 @@ mod tests {
             OpenAILoopProvider::map_stop_reason("tool_calls"),
             "tool_use"
         );
-        assert_eq!(
-            OpenAILoopProvider::map_stop_reason("length"),
-            "max_tokens"
-        );
-        assert_eq!(
-            OpenAILoopProvider::map_stop_reason("unknown"),
-            "unknown"
-        );
+        assert_eq!(OpenAILoopProvider::map_stop_reason("length"), "max_tokens");
+        assert_eq!(OpenAILoopProvider::map_stop_reason("unknown"), "unknown");
     }
 
     // ── JSON deserialization tests (simulating raw API responses) ─────────
@@ -784,7 +766,9 @@ mod tests {
             .with_model("gpt-4-turbo")
             .with_system_prompt("Be concise.")
             .with_max_tokens(2048)
-            .with_tools(vec![json!({"type": "function", "function": {"name": "bash"}})]);
+            .with_tools(vec![
+                json!({"type": "function", "function": {"name": "bash"}}),
+            ]);
 
         assert_eq!(provider.model, "gpt-4-turbo");
         assert_eq!(provider.system_prompt, Some("Be concise.".to_string()));

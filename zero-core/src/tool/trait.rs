@@ -45,10 +45,10 @@ impl ToolContext {
 pub trait Tool: Send + Sync {
     /// Tool 元数据
     fn metadata(&self) -> ToolMetadata;
-    
+
     /// 执行 Tool
     async fn execute(&self, input: &str, ctx: &ToolContext) -> Result<ToolOutput, ToolError>;
-    
+
     /// 可选：验证输入
     fn validate_input(&self, _input: &str) -> Result<(), ToolError> {
         Ok(())

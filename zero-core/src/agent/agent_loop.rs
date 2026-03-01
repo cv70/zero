@@ -1,3 +1,5 @@
+use super::context_manager::ContextManager;
+use crate::agent::loop_config::AgentLoopConfig;
 /// Core Agent execution loop
 ///
 /// This module implements the fundamental Agent loop pattern:
@@ -8,15 +10,12 @@
 ///     append_results_to_messages()
 /// return final_response
 /// ```
-
 use crate::error::AgentError;
+use crate::hooks::HookManager;
 use crate::message::{ContentBlock, Message};
 use crate::provider::LoopProvider;
 use crate::provider::loop_provider::{StreamEvent, StreamingLoopProvider};
-use crate::tool::{ToolDispatcher, ToolCall};
-use crate::agent::loop_config::AgentLoopConfig;
-use crate::hooks::HookManager;
-use super::context_manager::ContextManager;
+use crate::tool::{ToolCall, ToolDispatcher};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -55,10 +54,7 @@ pub struct DefaultAgentLoop {
 
 impl DefaultAgentLoop {
     /// Create a new DefaultAgentLoop
-    pub fn new(
-        provider: Arc<dyn LoopProvider>,
-        tool_dispatcher: Arc<dyn ToolDispatcher>,
-    ) -> Self {
+    pub fn new(provider: Arc<dyn LoopProvider>, tool_dispatcher: Arc<dyn ToolDispatcher>) -> Self {
         Self {
             provider,
             tool_dispatcher,
@@ -112,7 +108,10 @@ impl AgentLoop for DefaultAgentLoop {
             }
 
             if config.verbose_logging {
-                eprintln!("[AgentLoop] Iteration {} of {}", iteration, config.max_iterations);
+                eprintln!(
+                    "[AgentLoop] Iteration {} of {}",
+                    iteration, config.max_iterations
+                );
             }
 
             // Call the LLM provider with timeout
@@ -299,8 +298,8 @@ impl StreamingAgentLoop {
 
             // Consume the stream
             while let Some(event_result) = stream.next().await {
-                let event = event_result
-                    .map_err(|e| AgentError::ProviderError(format!("{}", e)))?;
+                let event =
+                    event_result.map_err(|e| AgentError::ProviderError(format!("{}", e)))?;
 
                 // Forward event to callback
                 on_event(event.clone());
@@ -382,8 +381,7 @@ impl StreamingAgentLoop {
                 .collect();
 
             if !tool_calls.is_empty() {
-                let semaphore =
-                    Arc::new(tokio::sync::Semaphore::new(config.max_concurrent_tools));
+                let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrent_tools));
                 let mut handles = Vec::new();
 
                 for (id, name, input) in tool_calls {
@@ -419,8 +417,7 @@ impl StreamingAgentLoop {
                     match handle.await {
                         Ok((id, result)) => tool_results.push((id, result)),
                         Err(e) => {
-                            tool_results
-                                .push(("error".to_string(), format!("Task failed: {}", e)));
+                            tool_results.push(("error".to_string(), format!("Task failed: {}", e)));
                         }
                     }
                 }
@@ -458,7 +455,10 @@ mod tests {
 
     #[async_trait]
     impl LoopProvider for MockProvider {
-        async fn complete(&self, _messages: &[Message]) -> Result<ProviderResponse, crate::error::ProviderError> {
+        async fn complete(
+            &self,
+            _messages: &[Message],
+        ) -> Result<ProviderResponse, crate::error::ProviderError> {
             let count = self.call_count.fetch_add(1, Ordering::Relaxed);
             if count < self.responses.len() {
                 Ok(self.responses[count].clone())
@@ -478,10 +478,7 @@ mod tests {
 
     #[async_trait]
     impl ToolDispatcher for MockDispatcher {
-        async fn execute(
-            &self,
-            call: ToolCall,
-        ) -> Result<String, crate::error::ToolError> {
+        async fn execute(&self, call: ToolCall) -> Result<String, crate::error::ToolError> {
             Ok(format!("Executed {}", call.name))
         }
     }
@@ -572,7 +569,8 @@ mod tests {
         let loop_impl = DefaultAgentLoop::new(
             provider as Arc<dyn LoopProvider>,
             dispatcher as Arc<dyn ToolDispatcher>,
-        ).with_hooks(hooks.clone());
+        )
+        .with_hooks(hooks.clone());
 
         assert!(loop_impl.hooks().is_some());
     }
@@ -654,10 +652,7 @@ mod tests {
 
     #[async_trait]
     impl ToolDispatcher for OrderTrackingDispatcher {
-        async fn execute(
-            &self,
-            call: ToolCall,
-        ) -> Result<String, crate::error::ToolError> {
+        async fn execute(&self, call: ToolCall) -> Result<String, crate::error::ToolError> {
             // Record execution
             self.execution_order.lock().await.push(call.name.clone());
             Ok(format!("Result of {}", call.name))
@@ -755,9 +750,9 @@ mod tests {
             let ids: Vec<&str> = content
                 .iter()
                 .map(|tr| match tr {
-                    crate::message::ToolResultContent::ToolResult {
-                        tool_use_id, ..
-                    } => tool_use_id.as_str(),
+                    crate::message::ToolResultContent::ToolResult { tool_use_id, .. } => {
+                        tool_use_id.as_str()
+                    }
                 })
                 .collect();
             assert!(ids.contains(&"id_x"));
@@ -794,7 +789,7 @@ mod tests {
         let order = dispatcher.order();
         let loop_impl = DefaultAgentLoop::new(provider, dispatcher);
 
-        let mut messages = vec![Message::user("Test")];;
+        let mut messages = vec![Message::user("Test")];
         let config = AgentLoopConfig::default().with_max_concurrent_tools(1);
 
         let result = loop_impl.execute(&mut messages, &config).await;
@@ -847,15 +842,20 @@ mod tests {
             _messages: &[Message],
         ) -> Result<
             std::pin::Pin<
-                Box<dyn futures_core::Stream<Item = Result<StreamEvent, crate::error::ProviderError>> + Send>,
+                Box<
+                    dyn futures_core::Stream<
+                            Item = Result<StreamEvent, crate::error::ProviderError>,
+                        > + Send,
+                >,
             >,
             crate::error::ProviderError,
         > {
             let count = self.call_count.fetch_add(1, Ordering::Relaxed);
             if count < self.event_sequences.len() {
                 let events = self.event_sequences[count].clone();
-                let (tx, rx) =
-                    tokio::sync::mpsc::channel::<Result<StreamEvent, crate::error::ProviderError>>(64);
+                let (tx, rx) = tokio::sync::mpsc::channel::<
+                    Result<StreamEvent, crate::error::ProviderError>,
+                >(64);
 
                 tokio::spawn(async move {
                     for event in events {

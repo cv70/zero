@@ -1,14 +1,13 @@
+use crate::error::ProviderError;
 /// High-level Provider interface for Agent Loop
 ///
 /// This module provides a simplified provider interface tailored for the Agent loop,
 /// abstracted away from the low-level API details of different LLM providers.
-
-use crate::message::{Message, ContentBlock};
-use crate::error::ProviderError;
+use crate::message::{ContentBlock, Message};
 use async_trait::async_trait;
+use futures_core::Stream;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-use futures_core::Stream;
 
 /// Response from LLM provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,10 +113,7 @@ mod tests {
 
     #[test]
     fn test_provider_response_creation() {
-        let response = ProviderResponse::new(
-            vec![ContentBlock::text("Hello")],
-            "end_turn",
-        );
+        let response = ProviderResponse::new(vec![ContentBlock::text("Hello")], "end_turn");
         assert_eq!(response.stop_reason, "end_turn");
         assert!(!response.has_tool_use());
     }
@@ -144,11 +140,7 @@ mod tests {
                     "bash".to_string(),
                     serde_json::json!({"cmd": "ls"}),
                 ),
-                ContentBlock::tool_use(
-                    "2".to_string(),
-                    "read".to_string(),
-                    serde_json::json!({}),
-                ),
+                ContentBlock::tool_use("2".to_string(), "read".to_string(), serde_json::json!({})),
             ],
             "tool_use",
         );
@@ -165,11 +157,7 @@ mod tests {
             vec![
                 ContentBlock::text("First"),
                 ContentBlock::text("Second"),
-                ContentBlock::tool_use(
-                    "1".to_string(),
-                    "bash".to_string(),
-                    serde_json::json!({}),
-                ),
+                ContentBlock::tool_use("1".to_string(), "bash".to_string(), serde_json::json!({})),
             ],
             "mixed",
         );

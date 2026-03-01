@@ -1,8 +1,7 @@
-/// File manipulation tools
-
-use crate::tool::r#trait::{Tool, ToolMetadata, ToolContext, ToolOutput};
 use crate::error::ToolError;
-use serde::{Deserialize, Serialize};
+/// File manipulation tools
+use crate::tool::r#trait::{Tool, ToolContext, ToolMetadata, ToolOutput};
+use serde::Deserialize;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -13,9 +12,9 @@ const BASE_DIR: &str = ".";
 fn safe_path(path: &str) -> Result<PathBuf, ToolError> {
     let base = PathBuf::from(BASE_DIR);
     let full_path = base.join(path);
-    let canonical = full_path.canonicalize().map_err(|_| {
-        ToolError::ExecutionFailed(format!("Invalid path: {}", path))
-    })?;
+    let canonical = full_path
+        .canonicalize()
+        .map_err(|_| ToolError::ExecutionFailed(format!("Invalid path: {}", path)))?;
 
     if !canonical.starts_with(base.canonicalize().unwrap_or(base)) {
         return Err(ToolError::ExecutionFailed(
@@ -54,8 +53,8 @@ impl Tool for ReadFileTool {
             limit: Option<usize>,
         }
 
-        let args: Args = serde_json::from_str(input)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let args: Args =
+            serde_json::from_str(input).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
         let file_path = safe_path(&args.path)?;
 
@@ -75,7 +74,9 @@ impl Tool for ReadFileTool {
             lines.join("\n")
         };
 
-        Ok(ToolOutput::text(result.chars().take(50000).collect::<String>()))
+        Ok(ToolOutput::text(
+            result.chars().take(50000).collect::<String>(),
+        ))
     }
 }
 
@@ -106,8 +107,8 @@ impl Tool for WriteFileTool {
             content: String,
         }
 
-        let args: Args = serde_json::from_str(input)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let args: Args =
+            serde_json::from_str(input).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
         let file_path = safe_path(&args.path)?;
 
@@ -157,8 +158,8 @@ impl Tool for EditFileTool {
             new_text: String,
         }
 
-        let args: Args = serde_json::from_str(input)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let args: Args =
+            serde_json::from_str(input).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
         let file_path = safe_path(&args.path)?;
 
@@ -188,11 +189,17 @@ mod tests {
     #[tokio::test]
     async fn test_write_file() {
         let tool = WriteFileTool;
-        let test_dir = format!("test_{}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis());
-        let input = format!(r#"{{"path": "{}/test_write.txt", "content": "hello"}}"#, test_dir);
+        let test_dir = format!(
+            "test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+        let input = format!(
+            r#"{{"path": "{}/test_write.txt", "content": "hello"}}"#,
+            test_dir
+        );
         let ctx = ToolContext::new("test".to_string());
         let result = tool.execute(&input, &ctx).await;
         // Note: Test may fail due to path canonicalization, so we just check execution attempts

@@ -13,8 +13,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use zero_core::tool::{Tool, ToolContext, ToolMetadata, ToolOutput};
 use zero_core::error::ToolError;
+use zero_core::tool::{Tool, ToolContext, ToolMetadata, ToolOutput};
 
 /// A custom Calculator tool that performs basic arithmetic operations
 #[derive(Debug, Clone)]
@@ -110,8 +110,8 @@ impl Tool for CalculatorTool {
         self.validate_input(input)?;
 
         // Parse arguments
-        let args: CalculatorArgs = serde_json::from_str(input)
-            .map_err(|e| ToolError::InvalidInput(e.to_string()))?;
+        let args: CalculatorArgs =
+            serde_json::from_str(input).map_err(|e| ToolError::InvalidInput(e.to_string()))?;
 
         // Parse and validate operation
         let operation = args.parse_operation()?;
@@ -132,9 +132,7 @@ impl Tool for CalculatorTool {
             }
             Operation::Divide => {
                 if args.b == 0.0 {
-                    return Err(ToolError::ExecutionFailed(
-                        "Division by zero".to_string(),
-                    ));
+                    return Err(ToolError::ExecutionFailed("Division by zero".to_string()));
                 }
                 let result = args.a / args.b;
                 format!("{} / {} = {}", args.a, args.b, result)
@@ -155,7 +153,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metadata = tool.metadata();
     println!("Tool: {}", metadata.name);
     println!("Description: {}", metadata.description);
-    println!("Input Schema: {}", serde_json::to_string_pretty(&metadata.input_schema)?);
+    println!(
+        "Input Schema: {}",
+        serde_json::to_string_pretty(&metadata.input_schema)?
+    );
     println!();
 
     // Test cases

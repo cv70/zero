@@ -177,9 +177,7 @@ pub struct AgentCoordinator {
 impl AgentCoordinator {
     /// Create a new agent coordinator
     pub fn new() -> Self {
-        Self {
-            agents: Vec::new(),
-        }
+        Self { agents: Vec::new() }
     }
 
     /// Register an agent with the coordinator
@@ -188,7 +186,10 @@ impl AgentCoordinator {
     }
 
     /// Execute all agents sequentially
-    pub async fn execute_all(&self, context: &AgentContext) -> Result<Vec<AgentResponse>, AgentError> {
+    pub async fn execute_all(
+        &self,
+        context: &AgentContext,
+    ) -> Result<Vec<AgentResponse>, AgentError> {
         let mut responses = Vec::new();
 
         for (name, agent) in &self.agents {

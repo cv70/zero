@@ -1,5 +1,4 @@
-use super::{AgentHook, ChannelHook, Hook, ToolHook, ProviderHook, MemoryHook};
-use crate::error::{ProviderError, MemoryError};
+use super::{AgentHook, Hook, MemoryHook, ProviderHook};
 use std::collections::HashMap;
 
 /// Hook manager
@@ -23,7 +22,10 @@ impl HookManager {
 
     /// Register a hook
     pub fn register_hook<H: Hook + 'static>(&mut self, hook_type: &str, hook: Box<H>) {
-        let hooks = self.hooks.entry(hook_type.to_string()).or_insert_with(Vec::new);
+        let hooks = self
+            .hooks
+            .entry(hook_type.to_string())
+            .or_insert_with(Vec::new);
         hooks.push(hook);
     }
 
@@ -39,12 +41,15 @@ impl HookManager {
 
     /// Get hooks by type
     pub fn get_hooks(&self, hook_type: &str) -> Vec<&dyn Hook> {
-        self.hooks.get(hook_type).map(|h| h.iter().map(|x| x.as_ref()).collect::<Vec<_>>()).unwrap_or_default()
+        self.hooks
+            .get(hook_type)
+            .map(|h| h.iter().map(|x| x.as_ref()).collect::<Vec<_>>())
+            .unwrap_or_default()
     }
 
     /// Run agent hooks
     pub async fn run_agent_hooks(&self) -> Result<(), String> {
-        for hook in &self.agent_hooks {
+        for _hook in &self.agent_hooks {
             // hooks would be called here with .await if needed
         }
         Ok(())

@@ -1,12 +1,11 @@
 /// Tool dispatcher for executing tool calls
 ///
 /// This module provides the interface for dispatching and executing tool calls
-
 use std::sync::Arc;
 
 use crate::error::ToolError;
-use crate::tool::{ToolCall, ToolContext, ToolOutput};
 use crate::tool::registry::ToolRegistry;
+use crate::tool::{ToolCall, ToolContext, ToolOutput};
 use async_trait::async_trait;
 
 /// Tool dispatcher trait
@@ -52,7 +51,10 @@ impl RegistryToolDispatcher {
 impl ToolDispatcher for RegistryToolDispatcher {
     async fn execute(&self, call: ToolCall) -> Result<String, ToolError> {
         let ctx = ToolContext::new(call.id.clone());
-        let output = self.registry.execute_tool(&call.name, &call.arguments, &ctx).await?;
+        let output = self
+            .registry
+            .execute_tool(&call.name, &call.arguments, &ctx)
+            .await?;
         Ok(tool_output_to_string(output))
     }
 }
@@ -111,7 +113,9 @@ mod tests {
         }
 
         async fn execute(&self, _input: &str, _ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
-            Err(ToolError::ExecutionFailed("intentional failure".to_string()))
+            Err(ToolError::ExecutionFailed(
+                "intentional failure".to_string(),
+            ))
         }
     }
 
@@ -192,7 +196,10 @@ mod tests {
             data: vec![0u8; 100],
             mime_type: "image/png".to_string(),
         };
-        assert_eq!(tool_output_to_string(output), "[Image: image/png, 100 bytes]");
+        assert_eq!(
+            tool_output_to_string(output),
+            "[Image: image/png, 100 bytes]"
+        );
     }
 
     #[test]
@@ -201,7 +208,10 @@ mod tests {
             data: vec![0u8; 2048],
             mime_type: "video/mp4".to_string(),
         };
-        assert_eq!(tool_output_to_string(output), "[Video: video/mp4, 2048 bytes]");
+        assert_eq!(
+            tool_output_to_string(output),
+            "[Video: video/mp4, 2048 bytes]"
+        );
     }
 
     #[test]
@@ -210,6 +220,9 @@ mod tests {
             data: vec![0u8; 512],
             mime_type: "audio/wav".to_string(),
         };
-        assert_eq!(tool_output_to_string(output), "[Audio: audio/wav, 512 bytes]");
+        assert_eq!(
+            tool_output_to_string(output),
+            "[Audio: audio/wav, 512 bytes]"
+        );
     }
 }

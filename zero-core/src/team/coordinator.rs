@@ -1,11 +1,10 @@
-/// Team coordinator for multi-agent coordination
-
-use crate::task::model::Task;
 use crate::error::ToolError;
+/// Team coordinator for multi-agent coordination
+use crate::task::model::Task;
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
 
 /// Team coordination trait
 #[async_trait]
@@ -87,7 +86,11 @@ mod tests {
     #[tokio::test]
     async fn test_distribute_task() {
         let coordinator = DefaultTeamCoordinator::new();
-        let task = Task::new("1".to_string(), "Test".to_string(), "Description".to_string());
+        let task = Task::new(
+            "1".to_string(),
+            "Test".to_string(),
+            "Description".to_string(),
+        );
         let result = coordinator.distribute_task(task).await;
         assert!(result.is_ok());
     }

@@ -1,11 +1,11 @@
-/// Task manager for CRUD operations
-
-use crate::task::model::{Task, TaskStatus};
 use crate::error::ToolError;
+/// Task manager for CRUD operations
+use crate::task::model::{Task, TaskStatus};
 use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::SystemTime;
+use tokio::sync::RwLock;
 
 /// Task manager trait
 #[async_trait]
@@ -57,7 +57,7 @@ impl Default for InMemoryTaskManager {
 
 #[async_trait]
 impl TaskManager for InMemoryTaskManager {
-    async fn create(&self, mut task: Task) -> Result<String, ToolError> {
+    async fn create(&self, task: Task) -> Result<String, ToolError> {
         let id = task.id.clone();
         let mut tasks = self.tasks.write().await;
         tasks.insert(id.clone(), task);
@@ -84,17 +84,19 @@ impl TaskManager for InMemoryTaskManager {
     }
 
     async fn update_status(&self, id: &str, status: TaskStatus) -> Result<(), ToolError> {
+        let now = SystemTime::now();
+        let duration = now.duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or(std::time::Duration::from_secs(0));
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(id) {
             task.status = status;
-            task.updated_at = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                .to_string();
+            task.updated_at = duration.as_secs().to_string();
             Ok(())
         } else {
-            Err(ToolError::ExecutionFailed(format!("Task not found: {}", id)))
+            Err(ToolError::ExecutionFailed(format!(
+                "Task not found: {}",
+                id
+            )))
         }
     }
 
@@ -138,11 +140,19 @@ mod tests {
     async fn test_list_tasks() {
         let manager = InMemoryTaskManager::new();
         manager
-            .create(Task::new("1".to_string(), "T1".to_string(), "D1".to_string()))
+            .create(Task::new(
+                "1".to_string(),
+                "T1".to_string(),
+                "D1".to_string(),
+            ))
             .await
             .unwrap();
         manager
-            .create(Task::new("2".to_string(), "T2".to_string(), "D2".to_string()))
+            .create(Task::new(
+                "2".to_string(),
+                "T2".to_string(),
+                "D2".to_string(),
+            ))
             .await
             .unwrap();
 
@@ -154,7 +164,11 @@ mod tests {
     async fn test_update_status() {
         let manager = InMemoryTaskManager::new();
         manager
-            .create(Task::new("1".to_string(), "Test".to_string(), "Desc".to_string()))
+            .create(Task::new(
+                "1".to_string(),
+                "Test".to_string(),
+                "Desc".to_string(),
+            ))
             .await
             .unwrap();
 

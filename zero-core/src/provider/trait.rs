@@ -1,6 +1,5 @@
 use crate::error::ProviderError;
 use async_trait::async_trait;
-use std::collections::VecDeque;
 
 /// 模型能力枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,9 +81,9 @@ pub trait LLMProvider: Send + Sync {
     /// 多模态补全（可选实现）
     async fn complete_with_media(
         &self,
-        prompt: &str,
-        media: &[MediaInput],
-        opts: CompleteOpts,
+        _prompt: &str,
+        _media: &[MediaInput],
+        _opts: CompleteOpts,
     ) -> Result<String, ProviderError> {
         Err(ProviderError::RequestFailed(
             "Multimodal not supported".into(),
@@ -94,9 +93,9 @@ pub trait LLMProvider: Send + Sync {
     /// Tool 调用补全（可选实现）
     async fn complete_with_tools(
         &self,
-        prompt: &str,
-        tools: &[ToolCall],
-        opts: CompleteOpts,
+        _prompt: &str,
+        _tools: &[ToolCall],
+        _opts: CompleteOpts,
     ) -> Result<ToolCallResult, ProviderError> {
         Err(ProviderError::RequestFailed(
             "Tool calling not supported".into(),

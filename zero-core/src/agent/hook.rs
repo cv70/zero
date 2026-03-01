@@ -1,8 +1,16 @@
 /// Agent hooks for extensibility
-use crate::agent::r#trait::{AgentResponse};
 
 /// Hook interface
-pub trait Hook: Send + Sync {}
+pub trait Hook: Send + Sync {
+    /// Hook name
+    fn name(&self) -> &str;
+}
+
+impl Hook for () {
+    fn name(&self) -> &str {
+        "none"
+    }
+}
 
 /// Hooked agent wrapper
 pub struct HookedAgent;

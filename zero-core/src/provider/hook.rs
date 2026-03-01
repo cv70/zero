@@ -1,7 +1,6 @@
 /// Provider hooks for extensibility
 ///
 /// This module provides hooks for intercepting provider operations
-
 use crate::hooks::{Hook, HookManager};
 use std::sync::Arc;
 

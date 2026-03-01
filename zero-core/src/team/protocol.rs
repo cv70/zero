@@ -1,5 +1,4 @@
 /// Team communication protocol
-
 use serde::{Deserialize, Serialize};
 
 /// Message type for inter-agent communication

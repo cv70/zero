@@ -1980,8 +1980,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "futures-core",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "zero-core",
