@@ -8,4 +8,4 @@ pub use r#trait::{Agent, AgentResponse, ToolCall};
 pub use context::{AgentContext, HistoryEntry};
 pub use hook::HookedAgent;
 pub use loop_config::AgentLoopConfig;
-pub use agent_loop::{AgentLoop, DefaultAgentLoop};
+pub use agent_loop::{AgentLoop, DefaultAgentLoop, StreamingAgentLoop};

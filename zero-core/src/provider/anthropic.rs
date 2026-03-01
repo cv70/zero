@@ -6,10 +6,12 @@
 
 use crate::error::ProviderError;
 use crate::message::{ContentBlock, Message, ToolResultContent};
-use crate::provider::loop_provider::{LoopProvider, ProviderResponse};
+use crate::provider::loop_provider::{LoopProvider, ProviderResponse, StreamEvent, StreamingLoopProvider};
 use crate::provider::LLMProvider;
 use async_trait::async_trait;
+use futures_core::Stream;
 use serde::Deserialize;
+use std::pin::Pin;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Legacy LLMProvider (kept for backward compat)
@@ -183,6 +185,11 @@ impl AnthropicLoopProvider {
 
     /// Build the full request body JSON.
     fn build_request_body(&self, messages: &[Message]) -> serde_json::Value {
+        self.build_request_body_inner(messages, false)
+    }
+
+    /// Build the request body JSON with optional streaming flag.
+    fn build_request_body_inner(&self, messages: &[Message], stream: bool) -> serde_json::Value {
         let mut body = serde_json::json!({
             "model": self.model,
             "max_tokens": self.max_tokens,
@@ -195,6 +202,10 @@ impl AnthropicLoopProvider {
 
         if !self.tools.is_empty() {
             body["tools"] = serde_json::json!(self.tools);
+        }
+
+        if stream {
+            body["stream"] = serde_json::json!(true);
         }
 
         body
@@ -272,6 +283,175 @@ impl LoopProvider for AnthropicLoopProvider {
             .map_err(|e| ProviderError::InvalidResponse(e.to_string()))?;
 
         Self::parse_response(&api_response)
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Streaming implementation
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Parse an SSE data line into a `StreamEvent`.
+///
+/// Returns `None` for events we don't care about (e.g. `ping`, `message_start`).
+fn parse_sse_data(event_type: &str, data: &str) -> Option<Result<StreamEvent, ProviderError>> {
+    match event_type {
+        "content_block_start" => {
+            let v: serde_json::Value = serde_json::from_str(data).ok()?;
+            let block = v.get("content_block")?;
+            let block_type = block.get("type")?.as_str()?;
+            match block_type {
+                "text" => None, // text block start doesn't carry useful data
+                "tool_use" => {
+                    let id = block.get("id")?.as_str()?.to_string();
+                    let name = block.get("name")?.as_str()?.to_string();
+                    Some(Ok(StreamEvent::ToolUseStart { id, name }))
+                }
+                _ => None,
+            }
+        }
+        "content_block_delta" => {
+            let v: serde_json::Value = serde_json::from_str(data).ok()?;
+            let delta = v.get("delta")?;
+            let delta_type = delta.get("type")?.as_str()?;
+            match delta_type {
+                "text_delta" => {
+                    let text = delta.get("text")?.as_str()?.to_string();
+                    Some(Ok(StreamEvent::TextDelta(text)))
+                }
+                "input_json_delta" => {
+                    let json = delta.get("partial_json")?.as_str()?.to_string();
+                    Some(Ok(StreamEvent::ToolUseInputDelta(json)))
+                }
+                _ => None,
+            }
+        }
+        "content_block_stop" => Some(Ok(StreamEvent::ContentBlockStop)),
+        "message_delta" => {
+            let v: serde_json::Value = serde_json::from_str(data).ok()?;
+            let delta = v.get("delta")?;
+            let stop_reason = delta.get("stop_reason")?.as_str()?.to_string();
+            Some(Ok(StreamEvent::MessageStop {
+                stop_reason,
+            }))
+        }
+        "message_stop" => {
+            // message_stop is a terminal event; the stop_reason was already
+            // delivered via message_delta, so we can ignore this.
+            None
+        }
+        _ => None, // ping, message_start, etc.
+    }
+}
+
+#[async_trait]
+impl StreamingLoopProvider for AnthropicLoopProvider {
+    async fn complete_stream(
+        &self,
+        messages: &[Message],
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamEvent, ProviderError>> + Send>>, ProviderError>
+    {
+        let request_body = self.build_request_body_inner(messages, true);
+
+        let response = self
+            .client
+            .post(ANTHROPIC_API_URL)
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", ANTHROPIC_VERSION)
+            .header("content-type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::RequestFailed(e.to_string()))?;
+
+        let status = response.status();
+
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let body_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "rate limited".to_string());
+            return Err(ProviderError::RateLimited(body_text));
+        }
+
+        if !status.is_success() {
+            let body_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(ProviderError::ApiError(format!(
+                "HTTP {}: {}",
+                status, body_text
+            )));
+        }
+
+        // Bridge the response body into an mpsc channel.
+        // We read the full response body as text, then parse SSE events from it.
+        // This avoids lifetime issues with the streaming byte stream and pin.
+        let (tx, rx) = tokio::sync::mpsc::channel::<Result<StreamEvent, ProviderError>>(64);
+
+        // Read the full response body as bytes and parse SSE from it.
+        // For truly incremental streaming, we spawn a task that uses
+        // chunk_stream (via reqwest's chunk() method).
+        tokio::spawn(async move {
+            let mut response = response;
+            let mut buffer = String::new();
+            let mut current_event_type = String::new();
+
+            // Read response body chunk by chunk
+            loop {
+                match response.chunk().await {
+                    Ok(Some(bytes)) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                        // Process complete SSE events (delimited by \n\n)
+                        while let Some(pos) = buffer.find("\n\n") {
+                            let event_block = buffer[..pos].to_string();
+                            buffer = buffer[pos + 2..].to_string();
+
+                            // Parse lines within the event block
+                            let mut data_line = String::new();
+                            for line in event_block.lines() {
+                                if let Some(ev) = line.strip_prefix("event: ") {
+                                    current_event_type = ev.trim().to_string();
+                                } else if let Some(d) = line.strip_prefix("data: ") {
+                                    data_line = d.to_string();
+                                }
+                            }
+
+                            if !current_event_type.is_empty() && !data_line.is_empty() {
+                                if let Some(event) =
+                                    parse_sse_data(&current_event_type, &data_line)
+                                {
+                                    if tx.send(event).await.is_err() {
+                                        return; // receiver dropped
+                                    }
+                                }
+                            } else if !current_event_type.is_empty() {
+                                // Events like content_block_stop may have no data payload
+                                if let Some(event) =
+                                    parse_sse_data(&current_event_type, "{}")
+                                {
+                                    if tx.send(event).await.is_err() {
+                                        return;
+                                    }
+                                }
+                            }
+
+                            current_event_type.clear();
+                        }
+                    }
+                    Ok(None) => return, // stream ended
+                    Err(e) => {
+                        let _ = tx
+                            .send(Err(ProviderError::RequestFailed(e.to_string())))
+                            .await;
+                        return;
+                    }
+                }
+            }
+        });
+
+        Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
     }
 }
 
@@ -786,5 +966,115 @@ mod tests {
         let tr_content = api_messages[2]["content"].as_array().unwrap();
         assert_eq!(tr_content[0]["type"], "tool_result");
         assert_eq!(tr_content[0]["tool_use_id"], "toolu_1");
+    }
+
+    // ── Streaming request body tests ──────────────────────────────────────
+
+    #[test]
+    fn test_build_request_body_stream_flag() {
+        let provider = AnthropicLoopProvider::new("test-key".to_string());
+        let messages = vec![Message::user("Hello")];
+        let body = provider.build_request_body_inner(&messages, true);
+        assert_eq!(body["stream"], true);
+    }
+
+    #[test]
+    fn test_build_request_body_no_stream_flag() {
+        let provider = AnthropicLoopProvider::new("test-key".to_string());
+        let messages = vec![Message::user("Hello")];
+        let body = provider.build_request_body_inner(&messages, false);
+        assert!(body.get("stream").is_none());
+    }
+
+    // ── SSE parsing tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_sse_text_delta() {
+        let data = r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}"#;
+        let result = parse_sse_data("content_block_delta", data);
+        assert!(result.is_some());
+        match result.unwrap().unwrap() {
+            StreamEvent::TextDelta(text) => assert_eq!(text, "Hello"),
+            other => panic!("Expected TextDelta, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_tool_use_start() {
+        let data = r#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_abc","name":"bash"}}"#;
+        let result = parse_sse_data("content_block_start", data);
+        assert!(result.is_some());
+        match result.unwrap().unwrap() {
+            StreamEvent::ToolUseStart { id, name } => {
+                assert_eq!(id, "toolu_abc");
+                assert_eq!(name, "bash");
+            }
+            other => panic!("Expected ToolUseStart, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_tool_input_delta() {
+        let data = r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"command\":"}}"#;
+        let result = parse_sse_data("content_block_delta", data);
+        assert!(result.is_some());
+        match result.unwrap().unwrap() {
+            StreamEvent::ToolUseInputDelta(json) => assert_eq!(json, "{\"command\":"),
+            other => panic!("Expected ToolUseInputDelta, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_content_block_stop() {
+        let result = parse_sse_data("content_block_stop", "{}");
+        assert!(result.is_some());
+        assert!(matches!(result.unwrap().unwrap(), StreamEvent::ContentBlockStop));
+    }
+
+    #[test]
+    fn test_parse_sse_message_delta_stop_reason() {
+        let data = r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"}}"#;
+        let result = parse_sse_data("message_delta", data);
+        assert!(result.is_some());
+        match result.unwrap().unwrap() {
+            StreamEvent::MessageStop { stop_reason } => assert_eq!(stop_reason, "end_turn"),
+            other => panic!("Expected MessageStop, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_message_stop_ignored() {
+        let result = parse_sse_data("message_stop", "{}");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_sse_ping_ignored() {
+        let result = parse_sse_data("ping", "{}");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_sse_message_start_ignored() {
+        let result = parse_sse_data("message_start", r#"{"type":"message_start"}"#);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_sse_text_block_start_ignored() {
+        let data = r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#;
+        let result = parse_sse_data("content_block_start", data);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_sse_tool_use_stop_reason() {
+        let data = r#"{"type":"message_delta","delta":{"stop_reason":"tool_use"}}"#;
+        let result = parse_sse_data("message_delta", data);
+        assert!(result.is_some());
+        match result.unwrap().unwrap() {
+            StreamEvent::MessageStop { stop_reason } => assert_eq!(stop_reason, "tool_use"),
+            other => panic!("Expected MessageStop, got {:?}", other),
+        }
     }
 }
