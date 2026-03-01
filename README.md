@@ -1,141 +1,112 @@
-# zero — Universal Agent Runtime Platform
+# Zero — Universal Agent Runtime Platform
 
 > **简体中文**: [README.zh-CN.md](./README.zh-CN.md)
 
-## Overview
+## What is Zero?
 
-**zero** is a **universal Agent runtime platform** built with Rust, designed to be:
+**Zero** is a **universal Agent runtime platform** built with Rust, designed for building intelligent, extensible AI applications through a trait-driven architecture.
 
-- **Universal** — Works for developers, enterprises, and individual users
-- **Rust-first** — High performance, low resource footprint (<5MB RAM)
-- **Trait-driven** — Everything is swappable through Trait definitions
-- **Extensible** — Core stays minimal, capabilities come from extensions
+### Core Values
 
-## ⚡ Core Architecture
+- **Trait-Driven** — All core capabilities are swappable through Rust Traits
+- **High Performance** — Efficient concurrent execution, minimal resource footprint
+- **Fully Extensible** — Core stays minimal, capabilities come from extensions
 
-```
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                                                                               ║
-║   █████╗  ██████╗ ██████╗███████╗███████╗███╗   ███╗     ██████╗ ███╗   ██╗   ║
-║  ██╔══██╗██╔════╝██╔════╝██╔════╝██╔════╝████╗ ████║    ██╔═══██╗████╗  ██║   ║
-║  ███████║██║  ███╗██║     █████╗  ███████╗██╔████╔██║    ██║   ██║██╔██╗ ██║   ║
-║  ██╔══██║██║   ██║██║     ██╔══╝  ╚════██║██║╚██╔╝██║    ██║   ██║██║╚██╗██║   ║
-║  ██║  ██║╚██████╔╝╚██████╗███████╗███████║██║ ╚═╝ ██║    ╚██████╔╝██║ ╚████║   ║
-║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝╚══════╝╚══════╝╚═╝     ╚═╝     ╚═════╝ ╚═╝  ╚═══╝   ║
-║                                                                               ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║                                                                               ║
-║  ┌─────────────────────────────┐    ┌─────────────────────────────┐          ║
-║  │    🚀 APPLICATION LAYER  │    │     ⚡ EXTENSIONS LAYER     │          ║
-║  ├─────────────────────────────┤    ├─────────────────────────────┤          ║
-║  │                             │    │                             │          ║
-║  │   ┌─────┐ ┌─────┐ ┌─────┐ │    │  ┌──────┐ ┌──────┐ ┌────┐ │          ║
-║  │   │CLI  │ │ Web │ │Desk │ │    │  │tools │ │memory│ │prov│ │          ║
-║  │   │TUI  │ │ UI  │ │top  │ │    │  │  *   │ │  *   │ │iders│ │          ║
-║  │   └──┬──┘ └──┬──┘ └──┬──┘ │    │  └──┬──┘ └──┬──┘ └──┬─┘ │          ║
-║  │      │       │       │    │    │     │       │       │   │          ║
-║  │      │       │       │    │    │     │       │       │   │          ║
-║  └──────┼───────┼───────┼────┘    └──────┼───────┼───────┼───┘          ║
-║         │       │       │                  │       │       │               ║
-║         └───────┴───────┴──────────────────┴───────┴───────┘               ║
-║                                                                               ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║                                                                               ║
-║         ██████╗ ███████╗██╗   ██╗██╗  ██╗██╗███╗   ██╗██████╗                ║
-║         ██╔══██╗██╔════╝██║   ██║██║ ██╔╝██║████╗  ██║██╔══██╗               ║
-║         ██║  ██║█████╗  ██║   ██║█████╔╝ ██║██╔██╗ ██║██║  ██║               ║
-║         ██║  ██║██╔══╝  ██║   ██║██╔═██╗ ██║██║╚██╗██║██║  ██║               ║
-║         ██████╔╝███████╗╚██████╔╝██║  ██╗██║██║ ╚████║██████╔╝               ║
-║         ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═════╝                ║
-║                                                                               ║
-║                         ┌─────────────────────────────────────────────┐                ║
-║                         │        🧠 CORE KERNEL               │                ║
-║                         ├─────────────────────────────────────────────┤                ║
-║                         │                                     │                ║
-║  ┌────────────┐  ┌─────┴─────┐  ┌────────────┐  ┌────────┴────────┐         ║
-║  │    🤖      │  │    🔧     │  │    💾     │  │       📡        │         ║
-║  │   AGENT    │  │   TOOL    │  │   MEMORY  │  │     PROVIDER    │         ║
-║  │            │  │           │  │           │  │                 │         ║
-║  │ • Factory  │  │ • Unified │  │ • Layered │  │ • Multi-model  │         ║
-║  │ • Multi    │  │ • Adapter │  │ • Global  │  │ • Capability   │         ║
-║  │ • Coord    │  │ • Registry│  │ • Filesys │  │ • Router       │         ║
-║  └────────────┘  └───────────┘  └───────────┘  └────────────────┘         ║
-║                                                                               ║
-║         ┌───────────────────────────────────────────────────────┐             ║
-║         │                       📱                              │             ║
-║         │                      CHANNEL                          │             ║
-║         │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐    │             ║
-║         │  │ Telegram │ │ Discord │ │  Slack  │ │ Email   │    │             ║
-║         │  └─────────┘ └─────────┘ └─────────┘ └─────────┘    │             ║
-║         └───────────────────────────────────────────────────────┘             ║
-║                                                                               ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-```
-
-### Data Flow
+## Architecture Overview
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Client     │────►│   Agent      │────►│    Tool      │────►│   Provider   │
-│ (CLI/Web/API)│     │   Engine     │     │   System     │     │    (LLM)     │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-       │                    │                    │                    │
-       │                    ▼                    ▼                    │
-       │              ┌──────────────┐     ┌──────────────┐          │
-       │              │   Memory     │◄────│   Adapter    │          │
-       │              │   System     │     │   Layer      │          │
-       │              └──────────────┘     └──────────────┘          │
-       │                    │                                             │
-       └────────────────────┴─────────────────────────────────────────────┘
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │    Output    │
-                    │  (Response)  │
-                    └──────────────┘
+┌─────────────────────────────────────────┐
+│      Applications Layer (CLI/Web)       │
+├─────────────────────────────────────────┤
+│      Core Kernel (Trait-Based)          │
+│  Agent | Tool | Memory | Provider       │
+├─────────────────────────────────────────┤
+│      Extension Ecosystem                │
+│  Tools | Providers | Channels           │
+└─────────────────────────────────────────┘
 ```
 
-## Core Features
+## Learning Path
 
-### Trait-Driven Architecture
+Choose your journey based on what you want to do:
 
-All core capabilities are defined as Rust Traits:
+### Quick Start (5 min)
+[Get Zero running in under 5 minutes](./docs/01-getting-started.md). Install, write your first Agent, run it.
 
-| Trait | Purpose |
-|-------|---------|
-| `Agent` | Agent factory and execution |
-| `Tool` | Unified tool abstraction |
-| `GlobalSharedMemory` | Cross-agent memory |
-| `LLMProvider` | Model provider abstraction |
-| `Channel` | Message channel abstraction |
+**Perfect for:** Anyone who wants to see it work immediately
 
-### Unified Tool System
+### Core Concepts (15 min)
+[Understand the Trait-driven design philosophy and 5 core principles](./docs/02-core-concepts.md) that make Zero extensible.
 
-- **Declarative Tools** — JSON/YAML definitions
-- **MCP Integration** — Model Context Protocol support
-- **Skills** — File-based skill definitions
-- **Rust Implementation** — Direct Trait implementation
+**Perfect for:** Developers who want to understand the "why" behind the design
 
-### Multi-Model Support
+### Trait Architecture (30 min)
+[Deep dive into each core Trait](./docs/03-trait-architecture.md): Agent, Tool, Memory, Provider, Channel. Learn how they interact and how to extend them.
+
+**Perfect for:** Contributors and advanced users building custom implementations
+
+### Code Examples (30 min)
+[From simple "Hello Agent" to multi-Agent coordination](./docs/04-examples.md). Real, runnable code with detailed explanations.
+
+**Perfect for:** Learners who prefer "show me the code"
+
+### API Reference
+[Complete API documentation for all core modules](./docs/05-api-reference.md). Type signatures, parameters, return values.
+
+**Perfect for:** Building with Zero, looking up specific APIs
+
+### Hooks System (20 min)
+[Learn about Zero's plugin/extension system](./docs/06-hooks-system.md). 6 hook types, when to use them, implementation patterns.
+
+**Perfect for:** Building extensions and customizations
+
+### Contributing Guide
+[Development setup, coding standards, Git workflow, testing requirements](./docs/07-contributing.md). Everything you need to contribute.
+
+**Perfect for:** Contributors to Zero itself
+
+## 5-Minute Example
 
 ```rust
-pub enum ModelCapability {
-    TextOnly,          // Text only
-    TextAndImages,     // Text + Images
-    TextAndVideo,      // Text + Video
-    Multimodal,        // Text + Images + Video + Audio
+use zero_core::{Agent, AgentContext};
+use async_trait::async_trait;
+
+struct MyAgent;
+
+#[async_trait]
+impl Agent for MyAgent {
+    async fn execute(&self, context: &AgentContext) -> Result<String> {
+        Ok(format!("Hello from {}!", context.name))
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let agent = MyAgent;
+    let context = AgentContext::new("MyAgent");
+    let result = agent.execute(&context).await?;
+    println!("{}", result);
+    Ok(())
 }
 ```
 
-### Layered Memory System
+## Feature Highlights
 
-- **Agent Isolation** — Each agent has independent context
-- **Global Shared Memory** — Cross-agent knowledge sharing via Trait
-- **Filesystem Storage** — Default implementation using filesystem structure
+- **Multi-Model Support** — OpenAI, Anthropic, Ollama, and custom providers
+- **Unified Tool System** — JSON/YAML tools, MCP integration, Rust implementations
+- **Layered Memory** — Agent isolation + global shared memory
+- **Channel System** — CLI, Web, Discord, Email, and more
+- **Hook System** — Extensibility at every critical point
+- **Production Ready** — Error handling, async/await, type safety
 
-## Quick Start
+## Project Status
 
-### Installation
+- ✅ **Phase 1**: Core Trait definitions and basic execution
+- ✅ **Phase 2**: Extension ecosystem (tools, memory, providers)
+- ✅ **Phase 3**: Multi-modal UIs (Web, Desktop)
+- ✅ **Phase 4**: Advanced features (security, RAG)
+
+## Installation
 
 ```bash
 # Build from source
@@ -145,100 +116,26 @@ cargo build -p zero-core
 cargo run -p zero-cli -- --help
 ```
 
-### Basic Usage
-
-```bash
-# Start interactive session
-cargo run -p zero-cli -- run
-
-# Execute single command
-cargo run -p zero-cli -- exec "Hello, world!
-
-# List available agents
-cargo run -p zero-cli -- list-agents
-
-# List available tools
-cargo run -p zero-cli -- list-tools
-```
-
-### Configure Models
-
-```bash
-# Add model providers
-cargo run -p zero-cli -- provider add openai --api-key $OPENAI_API_KEY
-cargo run -p zero-cli -- provider add anthropic --api-key $ANTHROPIC_API_KEY
-cargo run -p zero-cli -- provider add ollama --endpoint http://localhost:11434
-```
-
-## Project Structure
-
-```
-zero/
-├── zero-core/           # Core kernel (Trait definitions)
-│   ├── src/
-│   │   ├── agent/       # Agent engine
-│   │   ├── tool/        # Unified tool system
-│   │   ├── memory/      # Memory system
-│   │   ├── provider/   # LLM providers
-│   │   └── channel/    # Message channels
-├── zero-cli/           # CLI application (TUI)
-├── zero-web/           # Web UI (React)
-├── zero-desktop/       # Desktop app (Tauri)
-└── zero-api/           # REST/gRPC API server
-```
-
-## API Endpoints
-
-```
-/api/v1/
-├── agents/
-│   ├── GET    /list
-│   ├── POST   /create
-│   │   POST   /{id}/run
-├── tools/
-│   ├── GET    /list
-│   │   POST   /register
-│   │   │   POST   /{name}/execute
-│   ├── memory/
-│   │   │   │   │   ├── GET    /{namespace}/{key}
-│   │   │   │   │   ├── POST   /{namespace}/{key}
-│   │   │   │   │   └── GET    /{namespace}/search
-│   └── models/
-│       │   │   ├── GET    /list
-│   │   │   │   └── POST   /complete
-```
-
-## Design Principles
-
-1. **YAGNI — Remove all unnecessary features
-2. **Trait-driven — Everything is swappable
-3. **Extension-first — Core stays minimal
-4. **Unified abstraction — Eliminate differences through Traits
+For detailed setup instructions, see [Getting Started](./docs/01-getting-started.md).
 
 ## Roadmap
 
-### Phase 1: Core Validation ✅
-- Agent Trait + basic execution
-- Unified Tool Trait + adapters
-- Filesystem Memory backend
-- CLI + REST API
+- Short-term: Documentation improvements, community examples
+- Medium-term: Performance optimization, advanced RAG capabilities
+- Long-term: Full multi-Agent team coordination, autonomous agents
 
-### Phase 2: Extension Ecosystem ✅
-- Tool extensions (files, shell, websearch)
-- MCP adapter
-- Skills adapter
-- SQLite memory backend
-- Provider extensions (OpenAI, Anthropic, Ollama)
+## Contributing
 
-### Phase 3: Multi-modal UI ✅
-- Web UI
-- Desktop app
-- More channels
-
-### Phase 4: Advanced Features ✅
-- Security sandbox
-- RAG capabilities
+Zero welcomes contributions! See [Contributing Guide](./docs/07-contributing.md) for:
+- Development environment setup
+- Coding standards and conventions
+- Git workflow and commit process
+- Testing requirements
 
 ## License
 
 MIT
+
+---
+
+**Have questions?** Check out our [FAQ section](./docs/02-core-concepts.md#faq) or [open an issue on GitHub](https://github.com/your-org/zero/issues).
