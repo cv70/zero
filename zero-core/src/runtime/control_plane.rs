@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use crate::error::ZeroError;
 use crate::runtime::contracts::{ExecutionPlan, StepSpec, TaskState};
+use crate::runtime::recovery::{FailureClass, RecoveryDecision, RecoveryPolicy};
 
 pub struct ControlPlane {
     plans: HashMap<String, ExecutionPlan>,
     states: HashMap<String, TaskState>,
     completed_steps: HashMap<String, usize>,
+    recovery_policy: RecoveryPolicy,
 }
 
 impl ControlPlane {
@@ -15,7 +17,13 @@ impl ControlPlane {
             plans: HashMap::new(),
             states: HashMap::new(),
             completed_steps: HashMap::new(),
+            recovery_policy: RecoveryPolicy::default(),
         }
+    }
+
+    pub fn with_recovery_policy(mut self, recovery_policy: RecoveryPolicy) -> Self {
+        self.recovery_policy = recovery_policy;
+        self
     }
 
     pub async fn accept_plan(&mut self, plan: ExecutionPlan) -> Result<(), ZeroError> {
@@ -53,6 +61,10 @@ impl ControlPlane {
             .get(task_id)
             .cloned()
             .ok_or_else(|| ZeroError::NotFound(format!("task state not found: {task_id}")))
+    }
+
+    pub fn decide_recovery(&self, class: FailureClass, attempt: u8) -> RecoveryDecision {
+        self.recovery_policy.on_failure(class, attempt)
     }
 }
 
