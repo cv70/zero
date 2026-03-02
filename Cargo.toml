@@ -4,6 +4,7 @@ members = [
     "zero-core",
     "zero-cli",
     "zero-api",
+    "benches",
 ]
 
 [workspace.package]

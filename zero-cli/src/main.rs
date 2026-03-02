@@ -52,6 +52,10 @@ struct Cli {
 
     /// Prompt for single-shot mode (if provided, execute and exit)
     prompt: Option<String>,
+
+    /// Enable shadow mode for compatibility rollout
+    #[arg(long, default_value_t = false)]
+    shadow_mode: bool,
 }
 
 fn setup_tracing(verbose: bool) {
@@ -370,6 +374,9 @@ async fn run_repl_streaming(
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    if cli.shadow_mode {
+        eprintln!("[compat] shadow mode enabled");
+    }
 
     setup_tracing(cli.verbose);
 
