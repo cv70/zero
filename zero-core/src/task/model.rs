@@ -1,6 +1,7 @@
 /// Task data model
 use serde::{Deserialize, Serialize};
 use std::{time::SystemTime, collections::HashMap};
+use crate::runtime::TaskState;
 
 /// Task status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,6 +74,17 @@ impl Task {
         self.dependencies
             .iter()
             .any(|dep| !completed_tasks.contains(dep))
+    }
+}
+
+impl From<TaskState> for TaskStatus {
+    fn from(value: TaskState) -> Self {
+        match value {
+            TaskState::Pending | TaskState::Runnable | TaskState::Waiting => TaskStatus::Pending,
+            TaskState::Running => TaskStatus::Running,
+            TaskState::Succeeded => TaskStatus::Completed,
+            TaskState::Failed | TaskState::Compensated => TaskStatus::Failed,
+        }
     }
 }
 
