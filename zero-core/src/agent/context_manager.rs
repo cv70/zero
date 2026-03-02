@@ -1,6 +1,5 @@
 /// Context manager that compacts messages when they exceed token limits
 ///
-/// Implements a 3-layer compression strategy inspired by learn-claude-code:
 /// - Layer 1: LLM summarization (intentionally omitted for now)
 /// - Layer 2: Trim long tool results, keeping first + last chars
 /// - Layer 3: Drop oldest messages, keeping first user message and recent context

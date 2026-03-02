@@ -2,7 +2,6 @@
 //! # Security Sandbox
 //!
 //! The security sandbox provides filesystem and command access policies inspired
-//! by the Codex sandbox model. It enforces read/write/execute/network controls
 //! based on configurable policies.
 
 use std::collections::HashSet;

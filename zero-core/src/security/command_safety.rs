@@ -3,7 +3,6 @@
 //!
 //! Classifies shell commands by their safety level, distinguishing between
 //! read-only safe commands, known dangerous commands, and unknown commands.
-//! Inspired by Codex's `is_safe_command.rs` and `is_dangerous_command.rs`.
 
 /// Safety classification for a shell command
 #[derive(Debug, Clone, PartialEq)]

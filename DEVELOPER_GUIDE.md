@@ -64,7 +64,6 @@ zero/
 
 **第二步：学习参考实现**
 
-进入 `/home/o/space/zero/learn-claude-code` 学习 Python 版本：
 - `agents/s01_agent_loop.py` - Agent 循环核心
 - `agents/s02_tool_use.py` - 工具调度
 - `agents/s07_task_system.py` - 任务系统
@@ -208,7 +207,6 @@ git push origin your-branch
 #### Message 类型
 **位置**：`zero-core/src/message.rs`（待实现）
 **用途**：定义 Agent 通信的消息格式
-**学习自**：`learn-claude-code/agents/s01_agent_loop.py` 中的消息结构
 
 #### Agent Trait
 **位置**：`zero-core/src/agent/trait.rs` ✅
@@ -218,7 +216,6 @@ git push origin your-branch
 #### Tool Trait
 **位置**：`zero-core/src/tool/trait.rs` ✅
 **用途**：定义工具接口
-**实现参考**：`learn-claude-code/agents/s02_tool_use.py`
 
 #### Provider Trait
 **位置**：`zero-core/src/provider/trait.rs` ✅
@@ -350,15 +347,14 @@ println!("LLM Response: {:?}", response);
 
 ### Q: 测试失败，说找不到 mock？
 
-**A**: 确保：
-1. `Cargo.toml` 包含 `mockall` dev-dependency
-2. 使用 `#[mock]` 属性
-3. mock 对象的方法签名与 Trait 一致
+**A**: 检查 `CLAUDE.md` 中的要求。通常需要：
+- 使用 `#[async_trait]` 标注
+- 所有方法返回 `Result`
+- `Send + Sync` bounds
 
 ### Q: 如何理解 Agent Loop 的逻辑？
 
 **A**: 按这个顺序学习：
-1. 读 `learn-claude-code/agents/s01_agent_loop.py`
 2. 读详细计划文档中的 S1.3 部分
 3. 看伪代码注释
 4. 运行测试理解数据流
@@ -394,7 +390,6 @@ println!("LLM Response: {:?}", response);
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **Roadmap**: `docs/plans/2026-03-01-implementation-roadmap.md`
 - **S1-S2**: `docs/plans/2026-03-01-phase1-detailed-plan.md`
-- **Reference**: `/home/o/space/zero/learn-claude-code/agents/`
 
 ---
 
@@ -402,7 +397,6 @@ println!("LLM Response: {:?}", response);
 
 1. **查看文档**：从 `CLAUDE.md` 和 `ARCHITECTURE.md` 开始
 2. **查看代码**：已实现的 Trait 在 `src/*/trait.rs` 中
-3. **查看参考**：learn-claude-code 的 Python 实现
 4. **运行测试**：`cargo test` 查看预期行为
 
 ---
@@ -454,5 +448,5 @@ cargo clean                         # 删除构建产物
 
 ---
 
-祝开发愉快！如有疑问，查阅 `ARCHITECTURE.md` 或 learn-claude-code 的代码。
+
 

@@ -4,7 +4,7 @@
 
 Zero 是一个用 Rust 实现的完整 Agent 系统，基于 Trait 驱动架构。它分 12 个阶段逐步构建，从基础的 Agent Loop 到支持多 Agent 团队协作、自主任务管理和工作树隔离的生产级系统。
 
-该项目是 learn-claude-code 的 Rust 高性能版本，保留了教学价值，同时获得了 Rust 的类型安全和性能优势。
+该项目是 Rust 高性能版本 Agent，保留了 Agent 的自主能力，同时获得了 Rust 的类型安全和性能优势。
 
 ---
 
@@ -431,9 +431,8 @@ let max_tokens_per_call = 8000;
 3. 运行最小示例：`examples/minimal_agent.rs`
 
 ### 深度学习
-1. 研究参考实现：学习 learn-claude-code 的 Python 版本
-2. 跟踪代码变更：每个 PR 对应一个 S 阶段
-3. 实现自定义 Tool 和 Channel
+1. 跟踪代码变更：每个 PR 对应一个 S 阶段
+2. 实现自定义 Tool 和 Channel
 
 ### 生产部署
 1. 配置多个 Provider（故障转移）
@@ -479,7 +478,6 @@ let max_tokens_per_call = 8000;
 
 ## 许可和归属
 
-基于 learn-claude-code 的架构参考。
 Zero 采用 MIT 或 Apache 2.0 许可（待定）。
 
 ---
