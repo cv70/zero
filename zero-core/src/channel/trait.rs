@@ -5,9 +5,9 @@
 // pub mod persistence;
 
 use async_trait::async_trait;
-use thiserror::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 
 /// 消息结构
 #[derive(Debug, Clone, Serialize, Deserialize)]

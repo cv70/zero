@@ -55,7 +55,7 @@ impl LLMProvider for OllamaProvider {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_MODEL: &str = "llama3.2";
-const DEFAULT_ENDPOINT: &str = "http://localhost:11434";
+const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 
 /// Ollama provider implementing `LoopProvider` for the Agent loop.
 ///
@@ -70,7 +70,7 @@ const DEFAULT_ENDPOINT: &str = "http://localhost:11434";
 /// - Requires `"stream": false` in the request body
 pub struct OllamaLoopProvider {
     client: reqwest::Client,
-    endpoint: String,
+    base_url: String,
     model: String,
     system_prompt: Option<String>,
     tools: Vec<serde_json::Value>,
@@ -81,7 +81,7 @@ impl OllamaLoopProvider {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::new(),
-            endpoint: DEFAULT_ENDPOINT.to_string(),
+            base_url: DEFAULT_BASE_URL.to_string(),
             model: DEFAULT_MODEL.to_string(),
             system_prompt: None,
             tools: Vec::new(),
@@ -94,9 +94,9 @@ impl OllamaLoopProvider {
         self
     }
 
-    /// Set the endpoint URL.
-    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.endpoint = endpoint.into();
+    /// Set the base URL for the Ollama API.
+    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = base_url.into();
         self
     }
 
@@ -122,7 +122,7 @@ impl OllamaLoopProvider {
 
     /// Build the API URL for chat completions.
     fn api_url(&self) -> String {
-        format!("{}/api/chat", self.endpoint)
+        format!("{}/api/chat", self.base_url)
     }
 
     /// Convert internal `Message` slice to the Ollama messages JSON array.
@@ -742,7 +742,7 @@ mod tests {
     fn test_new_defaults() {
         let provider = OllamaLoopProvider::new();
         assert_eq!(provider.model, DEFAULT_MODEL);
-        assert_eq!(provider.endpoint, DEFAULT_ENDPOINT);
+        assert_eq!(provider.base_url, DEFAULT_BASE_URL);
         assert!(provider.system_prompt.is_none());
         assert!(provider.tools.is_empty());
     }
@@ -751,14 +751,14 @@ mod tests {
     fn test_builder_chain() {
         let provider = OllamaLoopProvider::new()
             .with_model("mistral")
-            .with_endpoint("http://myserver:11434")
+            .with_base_url("http://myserver:11434")
             .with_system_prompt("Be concise.")
             .with_tools(vec![
                 json!({"type": "function", "function": {"name": "bash"}}),
             ]);
 
         assert_eq!(provider.model, "mistral");
-        assert_eq!(provider.endpoint, "http://myserver:11434");
+        assert_eq!(provider.base_url, "http://myserver:11434");
         assert_eq!(provider.system_prompt, Some("Be concise.".to_string()));
         assert_eq!(provider.tools.len(), 1);
     }
@@ -774,7 +774,7 @@ mod tests {
         let provider = OllamaLoopProvider::new();
         assert_eq!(provider.api_url(), "http://localhost:11434/api/chat");
 
-        let provider = OllamaLoopProvider::new().with_endpoint("http://myserver:8080");
+        let provider = OllamaLoopProvider::new().with_base_url("http://myserver:8080");
         assert_eq!(provider.api_url(), "http://myserver:8080/api/chat");
     }
 
@@ -782,7 +782,7 @@ mod tests {
     fn test_default_impl() {
         let provider = OllamaLoopProvider::default();
         assert_eq!(provider.model, DEFAULT_MODEL);
-        assert_eq!(provider.endpoint, DEFAULT_ENDPOINT);
+        assert_eq!(provider.base_url, DEFAULT_BASE_URL);
     }
 
     // ── Round-trip: build request -> parse response ──────────────────────

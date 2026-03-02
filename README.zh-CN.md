@@ -116,6 +116,53 @@ cargo build -p zero-core
 cargo run -p zero-cli -- --help
 ```
 
+## 运行项目
+
+1. 创建 `~/.zero/config.yaml`：
+
+```yaml
+name: "Zero Agent"
+provider:
+  name: "openai" # 或 anthropic / ollama
+  api_key: "your-api-key"
+  model: "gpt-4o"
+settings:
+  api_bind: "127.0.0.1:3001" # 可选，zero-api 监听地址
+# 未设置 api_bind 时，也支持 api_host/api_port
+# settings:
+#   api_host: "0.0.0.0"
+#   api_port: 3000
+```
+
+2. 构建项目：
+
+```bash
+cargo build
+```
+
+3. 运行 CLI：
+
+```bash
+cargo run -p zero-cli -- --provider openai
+```
+
+4. 运行 API 服务：
+
+```bash
+cargo run -p zero-api
+```
+
+`zero-api` 监听地址解析优先级：
+- 环境变量 `ZERO_API_BIND`（最高优先级）
+- `~/.zero/config.yaml` 中的 `settings.api_bind`
+- `~/.zero/config.yaml` 中的 `settings.api_host + settings.api_port`
+- 默认值：`0.0.0.0:3000`
+
+示例：
+```bash
+ZERO_API_BIND=127.0.0.1:3100 cargo run -p zero-api
+```
+
 详细的设置说明，见 [快速开始](./docs/01-getting-started.zh-CN.md)。
 
 ## 路线图

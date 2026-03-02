@@ -4,7 +4,9 @@ pub mod loader;
 pub mod validator;
 
 pub use hooks::ConfigHooks;
-pub use loader::ConfigLoader;
+pub use loader::{ChannelConfig, Config, ProviderConfig, ToolConfig};
+pub use loader::{CompositeConfigLoader, ConfigBuilder, ConfigLoader, YamlConfigLoader};
+
 pub use validator::ConfigValidator;
 
 /// Configuration error

@@ -16,9 +16,12 @@ uuid.workspace = true
 reqwest.workspace = true
 tokio-stream.workspace = true
 futures-core.workspace = true
+serde_yaml.workspace = true
+sqlx.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"
+tempfile = "3"
 
 [[example]]
 name = "01-simple-agent"

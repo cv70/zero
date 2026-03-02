@@ -25,8 +25,18 @@ const SAFE_COMMANDS: &[&str] = &[
 
 /// Git sub-commands that are safe (read-only).
 const SAFE_GIT_SUBCOMMANDS: &[&str] = &[
-    "status", "log", "diff", "show", "branch", "tag", "remote", "stash list", "describe",
-    "rev-parse", "ls-files", "ls-tree",
+    "status",
+    "log",
+    "diff",
+    "show",
+    "branch",
+    "tag",
+    "remote",
+    "stash list",
+    "describe",
+    "rev-parse",
+    "ls-files",
+    "ls-tree",
 ];
 
 /// Commands that are always considered dangerous regardless of flags.
@@ -62,7 +72,9 @@ pub fn classify_command(command: &str) -> CommandSafety {
 
     // Check for --no-preserve-root
     if command.contains("--no-preserve-root") {
-        return CommandSafety::Dangerous("--no-preserve-root flag is extremely dangerous".to_string());
+        return CommandSafety::Dangerous(
+            "--no-preserve-root flag is extremely dangerous".to_string(),
+        );
     }
 
     // Parse the command tokens
@@ -76,7 +88,10 @@ pub fn classify_command(command: &str) -> CommandSafety {
     // Check always-dangerous commands (including variations like mkfs.ext4)
     for &dangerous in ALWAYS_DANGEROUS_COMMANDS {
         if cmd_name == dangerous || cmd_name.starts_with(dangerous) {
-            return CommandSafety::Dangerous(format!("'{}' is always considered dangerous", dangerous));
+            return CommandSafety::Dangerous(format!(
+                "'{}' is always considered dangerous",
+                dangerous
+            ));
         }
     }
 
@@ -190,7 +205,15 @@ fn classify_find_command(tokens: &[String]) -> CommandSafety {
 
 /// Classify an `rm` command -- dangerous with force/recursive flags.
 fn classify_rm_command(tokens: &[String]) -> CommandSafety {
-    let has_force = tokens.iter().skip(1).any(|t| t == "-f" || t == "-rf" || t == "-fr" || t.starts_with("-") && t.contains('f') && t.len() > 1 && t.chars().skip(1).all(|c| c.is_ascii_alphabetic()));
+    let has_force = tokens.iter().skip(1).any(|t| {
+        t == "-f"
+            || t == "-rf"
+            || t == "-fr"
+            || t.starts_with("-")
+                && t.contains('f')
+                && t.len() > 1
+                && t.chars().skip(1).all(|c| c.is_ascii_alphabetic())
+    });
 
     if has_force {
         CommandSafety::Dangerous("rm with force flag can cause irreversible data loss".to_string())
@@ -211,9 +234,7 @@ fn classify_chmod_command(tokens: &[String]) -> CommandSafety {
 /// Check if the command pipes downloaded content to a shell.
 fn is_pipe_to_shell(command: &str) -> bool {
     let lower = command.to_lowercase();
-    let patterns = [
-        "curl", "wget",
-    ];
+    let patterns = ["curl", "wget"];
     let shells = ["sh", "bash", "zsh", "fish"];
 
     // Pattern: curl ... | sh  or  wget ... | bash  etc.
@@ -222,9 +243,9 @@ fn is_pipe_to_shell(command: &str) -> bool {
         let after_pipe = lower[pipe_pos + 1..].trim();
 
         let has_download = patterns.iter().any(|p| before_pipe.contains(p));
-        let pipes_to_shell = shells.iter().any(|s| {
-            after_pipe == *s || after_pipe.starts_with(&format!("{} ", s))
-        });
+        let pipes_to_shell = shells
+            .iter()
+            .any(|s| after_pipe == *s || after_pipe.starts_with(&format!("{} ", s)));
 
         if has_download && pipes_to_shell {
             return true;
@@ -285,7 +306,10 @@ mod tests {
 
     #[test]
     fn test_safe_grep() {
-        assert_eq!(classify_command("grep -r 'pattern' src/"), CommandSafety::Safe);
+        assert_eq!(
+            classify_command("grep -r 'pattern' src/"),
+            CommandSafety::Safe
+        );
     }
 
     #[test]
@@ -295,7 +319,10 @@ mod tests {
 
     #[test]
     fn test_safe_git_log() {
-        assert_eq!(classify_command("git log --oneline -10"), CommandSafety::Safe);
+        assert_eq!(
+            classify_command("git log --oneline -10"),
+            CommandSafety::Safe
+        );
     }
 
     #[test]
@@ -454,7 +481,10 @@ mod tests {
 
     #[test]
     fn test_unknown_python() {
-        assert_eq!(classify_command("python3 script.py"), CommandSafety::Unknown);
+        assert_eq!(
+            classify_command("python3 script.py"),
+            CommandSafety::Unknown
+        );
     }
 
     #[test]
@@ -469,7 +499,10 @@ mod tests {
 
     #[test]
     fn test_unknown_git_push() {
-        assert_eq!(classify_command("git push origin main"), CommandSafety::Unknown);
+        assert_eq!(
+            classify_command("git push origin main"),
+            CommandSafety::Unknown
+        );
     }
 
     #[test]
@@ -497,7 +530,10 @@ mod tests {
     #[test]
     fn test_unknown_chmod_normal() {
         // chmod with normal permissions is unknown
-        assert_eq!(classify_command("chmod 644 file.txt"), CommandSafety::Unknown);
+        assert_eq!(
+            classify_command("chmod 644 file.txt"),
+            CommandSafety::Unknown
+        );
     }
 
     // ---------- Edge cases ----------
@@ -525,7 +561,10 @@ mod tests {
     #[test]
     fn test_classify_preserves_on_unknown_git_subcommand() {
         // git commit is a write operation and should be Unknown
-        assert_eq!(classify_command("git commit -m 'msg'"), CommandSafety::Unknown);
+        assert_eq!(
+            classify_command("git commit -m 'msg'"),
+            CommandSafety::Unknown
+        );
     }
 
     #[test]
@@ -540,6 +579,9 @@ mod tests {
 
     #[test]
     fn test_safe_cut() {
-        assert_eq!(classify_command("cut -d',' -f1 data.csv"), CommandSafety::Safe);
+        assert_eq!(
+            classify_command("cut -d',' -f1 data.csv"),
+            CommandSafety::Safe
+        );
     }
 }

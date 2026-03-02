@@ -1,0 +1,47 @@
+# Zero Agent Configuration
+# Example YAML configuration file
+# Example: zero-cli --config config.yaml
+name: "Zero Agent"
+version: "1.0.0"
+description: "A smart AI agent for coding"
+
+# Provider configuration
+provider:
+  name: "anthropic"  # anthropic, openai, ollama
+  model: "claude-3-opus-20240229"
+  api_key: "replace-with-your-api-key"
+  endpoint: "https://api.anthropic.com/v1"
+  stream: true
+  system_prompt: "You are a helpful AI assistant specialized in coding."
+
+# Tool configuration
+tool:
+  enabled: true
+  paths:
+    - "bash"
+    - "file:read"
+    - "file:write"
+  timeout: 60
+
+# Channel configuration
+channel:
+  type: "cli"
+  webhook_url: "https://example.com/webhook"
+  enabled: true
+
+# Additional settings
+settings:
+  api_key: "replace-with-your-api-key"
+  endpoint: "https://api.anthropic.com/v1"
+  model: "claude-3-opus-20240229"
+  max_context_tokens: 180000
+  verbose: false
+  timeout: 30
+
+# List of enabled features
+features:
+  - "anthropic"
+  - "openai"
+  - "ollama"
+  - "web"
+  - "discord"

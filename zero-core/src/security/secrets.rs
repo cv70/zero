@@ -4,13 +4,11 @@
 //! Provides secure storage and handling of sensitive values such as API keys.
 //!
 //! `SecretValue` wraps a string and clears it on drop. `SecretStore` provides
-//! centralized key management, redaction support for logging, and environment
-//! variable integration.
+//! centralized key management and redaction support for logging.
 //!
 //! **Note:** This does NOT provide encryption at rest. It provides:
 //! - Centralized key management
 //! - Redaction support for logging
-//! - Environment variable integration
 //! - Drop-time clearing
 
 use std::collections::HashMap;
@@ -102,31 +100,6 @@ impl SecretStore {
     /// Retrieve a secret by key
     pub fn get(&self, key: &str) -> Option<&SecretValue> {
         self.secrets.get(key)
-    }
-
-    /// Load a secret value from an environment variable
-    pub fn from_env(key: &str) -> Option<SecretValue> {
-        std::env::var(key).ok().map(SecretValue::new)
-    }
-
-    /// Convenience: load a provider API key from well-known environment variables.
-    ///
-    /// Supported providers:
-    /// - `"anthropic"` -> `ANTHROPIC_API_KEY`
-    /// - `"openai"` -> `OPENAI_API_KEY`
-    /// - `"google"` -> `GOOGLE_API_KEY`
-    /// - `"cohere"` -> `COHERE_API_KEY`
-    ///
-    /// Returns `None` if the provider is unknown or the env var is not set.
-    pub fn load_provider_key(provider: &str) -> Option<SecretValue> {
-        let env_var = match provider.to_lowercase().as_str() {
-            "anthropic" => "ANTHROPIC_API_KEY",
-            "openai" => "OPENAI_API_KEY",
-            "google" => "GOOGLE_API_KEY",
-            "cohere" => "COHERE_API_KEY",
-            _ => return None,
-        };
-        Self::from_env(env_var)
     }
 
     /// Remove a secret by key
@@ -242,44 +215,6 @@ mod tests {
         store.set("key", "old_value");
         store.set("key", "new_value");
         assert_eq!(store.get("key").unwrap().expose(), "new_value");
-    }
-
-    #[test]
-    fn test_from_env_missing() {
-        // Use a key that certainly doesn't exist
-        let result = SecretStore::from_env("ZERO_TEST_NONEXISTENT_KEY_12345");
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_from_env_present() {
-        // Set an env var for testing.
-        // SAFETY: This test is single-threaded and the env var name is unique,
-        // so there are no data races.
-        unsafe {
-            std::env::set_var("ZERO_TEST_SECRET_KEY", "test-value-123");
-        }
-        let result = SecretStore::from_env("ZERO_TEST_SECRET_KEY");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().expose(), "test-value-123");
-        unsafe {
-            std::env::remove_var("ZERO_TEST_SECRET_KEY");
-        }
-    }
-
-    #[test]
-    fn test_load_provider_key_unknown() {
-        let result = SecretStore::load_provider_key("unknown_provider");
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_load_provider_key_anthropic() {
-        // This test checks the mapping; it may or may not find the env var
-        // depending on the environment. We just verify it doesn't panic.
-        let _result = SecretStore::load_provider_key("anthropic");
-        let _result = SecretStore::load_provider_key("Anthropic");
-        let _result = SecretStore::load_provider_key("ANTHROPIC");
     }
 
     #[test]

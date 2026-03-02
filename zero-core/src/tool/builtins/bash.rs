@@ -1,6 +1,6 @@
 use crate::error::ToolError;
-use crate::security::command_safety::classify_command;
 use crate::security::command_safety::CommandSafety;
+use crate::security::command_safety::classify_command;
 use crate::tool::r#trait::{Tool, ToolContext, ToolMetadata, ToolOutput};
 use serde::Deserialize;
 use serde_json::json;

@@ -59,7 +59,7 @@ impl LLMProvider for AnthropicProvider {
 
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
 const DEFAULT_MAX_TOKENS: u32 = 8192;
-const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
+const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
 /// Anthropic provider implementing `LoopProvider` for the Agent loop.
@@ -70,6 +70,7 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 pub struct AnthropicLoopProvider {
     client: reqwest::Client,
     api_key: String,
+    base_url: String,
     model: String,
     system_prompt: Option<String>,
     max_tokens: u32,
@@ -84,6 +85,7 @@ impl AnthropicLoopProvider {
         Self {
             client: reqwest::Client::new(),
             api_key,
+            base_url: DEFAULT_ANTHROPIC_BASE_URL.to_string(),
             model: DEFAULT_MODEL.to_string(),
             system_prompt: None,
             max_tokens: DEFAULT_MAX_TOKENS,
@@ -107,6 +109,12 @@ impl AnthropicLoopProvider {
     /// Set the model name.
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
+        self
+    }
+
+    /// Set the base URL for the Anthropic API.
+    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = base_url.into();
         self
     }
 
@@ -278,9 +286,11 @@ impl LoopProvider for AnthropicLoopProvider {
     async fn complete(&self, messages: &[Message]) -> Result<ProviderResponse, ProviderError> {
         let request_body = self.build_request_body(messages);
 
+        let api_url = format!("{}/v1/messages", self.base_url);
+
         let mut request = self
             .client
-            .post(ANTHROPIC_API_URL)
+            .post(&api_url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
             .header("content-type", "application/json");
@@ -389,9 +399,11 @@ impl StreamingLoopProvider for AnthropicLoopProvider {
     {
         let request_body = self.build_request_body_inner(messages, true);
 
+        let api_url = format!("{}/v1/messages", self.base_url);
+
         let mut request = self
             .client
-            .post(ANTHROPIC_API_URL)
+            .post(&api_url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
             .header("content-type", "application/json");

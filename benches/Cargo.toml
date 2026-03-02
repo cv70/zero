@@ -9,3 +9,5 @@ path = "bench_basic.rs"
 
 [dev-dependencies]
 criterion = "0.4"
+zero-core = { path = "../zero-core" }
+tokio = { workspace = true }

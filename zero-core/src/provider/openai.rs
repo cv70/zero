@@ -56,7 +56,7 @@ impl LLMProvider for OpenAIProvider {
 
 const DEFAULT_MODEL: &str = "gpt-4o";
 const DEFAULT_MAX_TOKENS: u32 = 4096;
-const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
+const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com";
 
 /// OpenAI provider implementing `LoopProvider` for the Agent loop.
 ///
@@ -66,6 +66,7 @@ const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
 pub struct OpenAILoopProvider {
     client: reqwest::Client,
     api_key: String,
+    base_url: String,
     model: String,
     system_prompt: Option<String>,
     max_tokens: u32,
@@ -78,6 +79,7 @@ impl OpenAILoopProvider {
         Self {
             client: reqwest::Client::new(),
             api_key,
+            base_url: DEFAULT_OPENAI_BASE_URL.to_string(),
             model: DEFAULT_MODEL.to_string(),
             system_prompt: None,
             max_tokens: DEFAULT_MAX_TOKENS,
@@ -100,6 +102,18 @@ impl OpenAILoopProvider {
     /// Set the model name.
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
+        self
+    }
+
+    /// Set the base URL for the OpenAI API.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let provider = OpenAILoopProvider::new("sk-...".to_string())
+    ///     .with_base_url("https://api.openai.com");
+    /// ```
+    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = base_url.into();
         self
     }
 
@@ -279,9 +293,11 @@ impl LoopProvider for OpenAILoopProvider {
     async fn complete(&self, messages: &[Message]) -> Result<ProviderResponse, ProviderError> {
         let request_body = self.build_request_body(messages);
 
+        let api_url = format!("{}/v1/chat/completions", self.base_url);
+
         let response = self
             .client
-            .post(OPENAI_API_URL)
+            .post(&api_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -758,6 +774,7 @@ mod tests {
         assert!(provider.system_prompt.is_none());
         assert!(provider.tools.is_empty());
         assert_eq!(provider.api_key, "sk-test");
+        assert!(provider.base_url.contains("openai.com"));
     }
 
     #[test]
@@ -774,6 +791,13 @@ mod tests {
         assert_eq!(provider.system_prompt, Some("Be concise.".to_string()));
         assert_eq!(provider.max_tokens, 2048);
         assert_eq!(provider.tools.len(), 1);
+    }
+
+    #[test]
+    fn test_with_base_url() {
+        let provider =
+            OpenAILoopProvider::new("sk-test".to_string()).with_base_url("https://api.openai.com");
+        assert!(provider.base_url.contains("api.openai.com"));
     }
 
     #[test]

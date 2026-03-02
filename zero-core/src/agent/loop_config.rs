@@ -50,6 +50,18 @@ pub struct AgentLoopConfig {
     /// Maximum context tokens before compaction (0 = disabled)
     /// Default: 0 (disabled)
     pub max_context_tokens: usize,
+
+    /// Max retry attempts per provider step
+    /// Default: 2
+    pub provider_retry_budget: u8,
+
+    /// Max retry attempts per tool step
+    /// Default: 2
+    pub tool_retry_budget: u8,
+
+    /// Max retry attempts for planning mismatch
+    /// Default: 1
+    pub planning_retry_budget: u8,
 }
 
 impl AgentLoopConfig {
@@ -106,6 +118,24 @@ impl AgentLoopConfig {
         self
     }
 
+    /// Set provider retry budget
+    pub fn with_provider_retry_budget(mut self, budget: u8) -> Self {
+        self.provider_retry_budget = budget;
+        self
+    }
+
+    /// Set tool retry budget
+    pub fn with_tool_retry_budget(mut self, budget: u8) -> Self {
+        self.tool_retry_budget = budget;
+        self
+    }
+
+    /// Set planning retry budget
+    pub fn with_planning_retry_budget(mut self, budget: u8) -> Self {
+        self.planning_retry_budget = budget;
+        self
+    }
+
     /// Convert provider timeout to Duration
     pub fn provider_timeout_duration(&self) -> Duration {
         Duration::from_secs(self.provider_timeout)
@@ -128,6 +158,9 @@ impl Default for AgentLoopConfig {
             max_concurrent_tools: 4,
             verbose_logging: false,
             max_context_tokens: 0,
+            provider_retry_budget: 2,
+            tool_retry_budget: 2,
+            planning_retry_budget: 1,
         }
     }
 }
@@ -182,5 +215,16 @@ mod tests {
     fn test_verbose_logging() {
         let config = AgentLoopConfig::new().with_verbose_logging(true);
         assert!(config.verbose_logging);
+    }
+
+    #[test]
+    fn test_retry_budgets() {
+        let config = AgentLoopConfig::new()
+            .with_provider_retry_budget(3)
+            .with_tool_retry_budget(4)
+            .with_planning_retry_budget(2);
+        assert_eq!(config.provider_retry_budget, 3);
+        assert_eq!(config.tool_retry_budget, 4);
+        assert_eq!(config.planning_retry_budget, 2);
     }
 }

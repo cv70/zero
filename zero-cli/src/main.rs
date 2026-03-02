@@ -2,8 +2,11 @@ use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
+use zero_core::ZeroInit;
 use zero_core::agent::{AgentLoop, AgentLoopConfig, DefaultAgentLoop, StreamingAgentLoop};
+use zero_core::config::Config;
 use zero_core::message::Message;
 use zero_core::provider::{
     AnthropicLoopProvider, LoopProvider, OllamaLoopProvider, OpenAILoopProvider, StreamEvent,
@@ -13,6 +16,9 @@ use zero_core::tool::{
     BashTool, EditFileTool, ReadFileTool, RegistryToolDispatcher, Tool, ToolDispatcher,
     ToolRegistry, WriteFileTool,
 };
+
+mod tui;
+use tui::runtime::RuntimeEvent;
 
 /// Zero Agent CLI - an interactive AI coding assistant
 #[derive(Parser, Debug)]
@@ -26,7 +32,7 @@ struct Cli {
     #[arg(short, long)]
     model: Option<String>,
 
-    /// API key (falls back to ANTHROPIC_API_KEY / OPENAI_API_KEY env vars)
+    /// API key (falls back to provider.api_key in ~/.zero/config.yaml)
     #[arg(short = 'k', long = "api-key")]
     api_key: Option<String>,
 
@@ -52,6 +58,14 @@ struct Cli {
 
     /// Prompt for single-shot mode (if provided, execute and exit)
     prompt: Option<String>,
+
+    /// Enable shadow mode for compatibility rollout
+    #[arg(long, default_value_t = false)]
+    shadow_mode: bool,
+
+    /// Disable TUI and use legacy stdio mode
+    #[arg(long, default_value_t = false)]
+    no_tui: bool,
 }
 
 fn setup_tracing(verbose: bool) {
@@ -68,22 +82,23 @@ fn setup_tracing(verbose: bool) {
     }
 }
 
-/// Resolve the API key from CLI flag or environment variable.
-fn resolve_api_key(cli_key: &Option<String>, provider: &str) -> Result<String> {
+/// Resolve the API key from CLI flag or config file.
+fn resolve_api_key(cli_key: &Option<String>, config: &Config, provider: &str) -> Result<String> {
     if let Some(key) = cli_key {
         return Ok(key.clone());
     }
 
-    let env_var = match provider {
-        "anthropic" => "ANTHROPIC_API_KEY",
-        "openai" => "OPENAI_API_KEY",
-        _ => return Err(anyhow!("No API key env var for provider '{}'", provider)),
-    };
+    let file_key = config
+        .provider
+        .as_ref()
+        .and_then(|p| p.api_key.as_ref())
+        .filter(|k| !k.trim().is_empty())
+        .cloned();
 
-    std::env::var(env_var).with_context(|| {
+    file_key.with_context(|| {
         format!(
-            "API key not provided via --api-key and {} is not set",
-            env_var
+            "API key not provided via --api-key and provider.api_key is missing in ~/.zero/config.yaml for provider '{}'",
+            provider
         )
     })
 }
@@ -131,10 +146,14 @@ enum ProviderKind {
 }
 
 /// Create the appropriate LoopProvider based on CLI arguments.
-fn create_provider(cli: &Cli, tool_defs: Vec<serde_json::Value>) -> Result<(ProviderKind, String)> {
+fn create_provider(
+    cli: &Cli,
+    config: &Config,
+    tool_defs: Vec<serde_json::Value>,
+) -> Result<(ProviderKind, String)> {
     match cli.provider.as_str() {
         "anthropic" => {
-            let api_key = resolve_api_key(&cli.api_key, "anthropic")?;
+            let api_key = resolve_api_key(&cli.api_key, config, "anthropic")?;
             let mut provider = AnthropicLoopProvider::new(api_key).with_tools(tool_defs);
             if let Some(ref model) = cli.model {
                 provider = provider.with_model(model);
@@ -160,7 +179,7 @@ fn create_provider(cli: &Cli, tool_defs: Vec<serde_json::Value>) -> Result<(Prov
             }
         }
         "openai" => {
-            let api_key = resolve_api_key(&cli.api_key, "openai")?;
+            let api_key = resolve_api_key(&cli.api_key, config, "openai")?;
             let mut provider = OpenAILoopProvider::new(api_key).with_tools(tool_defs);
             if let Some(ref model) = cli.model {
                 provider = provider.with_model(model);
@@ -179,8 +198,8 @@ fn create_provider(cli: &Cli, tool_defs: Vec<serde_json::Value>) -> Result<(Prov
             if let Some(ref model) = cli.model {
                 provider = provider.with_model(model);
             }
-            if let Some(ref endpoint) = cli.endpoint {
-                provider = provider.with_endpoint(endpoint);
+            if let Some(ref base_url) = cli.endpoint {
+                provider = provider.with_base_url(base_url);
             }
             if let Some(ref system) = cli.system {
                 provider = provider.with_system_prompt(system);
@@ -371,6 +390,17 @@ async fn run_repl_streaming(
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Load unified config from ~/.zero/config.yaml (fallback to defaults)
+    let zero = ZeroInit::load().unwrap_or_else(|e| {
+        eprintln!("Init warning: {e}");
+        ZeroInit::default()
+    });
+    let _ = &zero.config; // baseline config available for future use
+
+    if cli.shadow_mode {
+        eprintln!("[compat] shadow mode enabled");
+    }
+
     setup_tracing(cli.verbose);
 
     // Create built-in tools for schema extraction
@@ -385,7 +415,7 @@ async fn main() -> Result<()> {
     let tool_defs = build_tool_definitions(&builtin_tools, &cli.provider);
 
     // Create provider
-    let (provider_kind, model_name) = create_provider(&cli, tool_defs)?;
+    let (provider_kind, model_name) = create_provider(&cli, &zero.config, tool_defs)?;
     let provider_name = cli.provider.clone();
 
     // Register tools in the registry
@@ -412,19 +442,65 @@ async fn main() -> Result<()> {
     match provider_kind {
         ProviderKind::Standard(provider) => {
             let agent_loop = DefaultAgentLoop::new(provider, dispatcher as Arc<dyn ToolDispatcher>);
-
-            if let Some(ref prompt) = cli.prompt {
-                tokio::select! {
-                    result = run_single_shot(&agent_loop, &config, prompt) => {
-                        result?;
+            if cli.no_tui || cli.prompt.is_some() {
+                if let Some(ref prompt) = cli.prompt {
+                    tokio::select! {
+                        result = run_single_shot(&agent_loop, &config, prompt) => {
+                            result?;
+                        }
+                        _ = ctrl_c => {
+                            eprintln!("\nInterrupted.");
+                        }
                     }
-                    _ = ctrl_c => {
-                        eprintln!("\nInterrupted.");
+                } else {
+                    tokio::select! {
+                        result = run_repl(&agent_loop, &config, &provider_name, &model_name) => {
+                            result?;
+                        }
+                        _ = ctrl_c => {
+                            eprintln!("\nInterrupted.");
+                        }
                     }
                 }
             } else {
+                let history = Arc::new(Mutex::new(Vec::<Vec<Message>>::new()));
+                let agent_loop = Arc::new(agent_loop);
+                let config = config.clone();
+                let history_clone = Arc::clone(&history);
+                let loop_clone = Arc::clone(&agent_loop);
+                let provider_for_ui = provider_name.clone();
+                let model_for_ui = model_name.clone();
+
                 tokio::select! {
-                    result = run_repl(&agent_loop, &config, &provider_name, &model_name) => {
+                    result = tui::run_tui(provider_for_ui, model_for_ui, move |session_id, prompt, tx| {
+                        let history = Arc::clone(&history_clone);
+                        let agent_loop = Arc::clone(&loop_clone);
+                        let config = config.clone();
+                        tokio::spawn(async move {
+                            let mut histories = history.lock().await;
+                            if histories.len() <= session_id {
+                                histories.resize_with(session_id + 1, Vec::new);
+                            }
+                            let messages = &mut histories[session_id];
+                            messages.push(Message::user(prompt));
+                            match agent_loop
+                                .execute(messages, &config)
+                                .await
+                            {
+                                Ok(response) => {
+                                    let _ = tx.send(RuntimeEvent::TokenDelta { session_id, text: response });
+                                    let _ = tx.send(RuntimeEvent::Done { session_id });
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(RuntimeEvent::Error {
+                                        session_id,
+                                        message: format!("Agent error: {}", e),
+                                    });
+                                }
+                            }
+                        });
+                        Ok(())
+                    }) => {
                         result?;
                     }
                     _ = ctrl_c => {
@@ -436,19 +512,72 @@ async fn main() -> Result<()> {
         ProviderKind::Streaming(provider) => {
             let agent_loop =
                 StreamingAgentLoop::new(provider, dispatcher as Arc<dyn ToolDispatcher>);
-
-            if let Some(ref prompt) = cli.prompt {
-                tokio::select! {
-                    result = run_single_shot_streaming(&agent_loop, &config, prompt) => {
-                        result?;
+            if cli.no_tui || cli.prompt.is_some() {
+                if let Some(ref prompt) = cli.prompt {
+                    tokio::select! {
+                        result = run_single_shot_streaming(&agent_loop, &config, prompt) => {
+                            result?;
+                        }
+                        _ = ctrl_c => {
+                            eprintln!("\nInterrupted.");
+                        }
                     }
-                    _ = ctrl_c => {
-                        eprintln!("\nInterrupted.");
+                } else {
+                    tokio::select! {
+                        result = run_repl_streaming(&agent_loop, &config, &provider_name, &model_name) => {
+                            result?;
+                        }
+                        _ = ctrl_c => {
+                            eprintln!("\nInterrupted.");
+                        }
                     }
                 }
             } else {
+                let history = Arc::new(Mutex::new(Vec::<Vec<Message>>::new()));
+                let agent_loop = Arc::new(agent_loop);
+                let config = config.clone();
+                let history_clone = Arc::clone(&history);
+                let loop_clone = Arc::clone(&agent_loop);
+                let provider_for_ui = provider_name.clone();
+                let model_for_ui = model_name.clone();
+
                 tokio::select! {
-                    result = run_repl_streaming(&agent_loop, &config, &provider_name, &model_name) => {
+                    result = tui::run_tui(provider_for_ui, model_for_ui, move |session_id, prompt, tx| {
+                        let history = Arc::clone(&history_clone);
+                        let agent_loop = Arc::clone(&loop_clone);
+                        let config = config.clone();
+                        tokio::spawn(async move {
+                            let mut histories = history.lock().await;
+                            if histories.len() <= session_id {
+                                histories.resize_with(session_id + 1, Vec::new);
+                            }
+                            let messages = &mut histories[session_id];
+                            messages.push(Message::user(prompt));
+                            let result = agent_loop
+                                .execute_streaming(messages, &config, |event| match event {
+                                    StreamEvent::TextDelta(text) => {
+                                        let _ = tx.send(RuntimeEvent::TokenDelta { session_id, text });
+                                    }
+                                    StreamEvent::ToolUseStart { name, .. } => {
+                                        let _ = tx.send(RuntimeEvent::ToolEvent { session_id, name });
+                                    }
+                                    _ => {}
+                                })
+                                .await;
+                            match result {
+                                Ok(_) => {
+                                    let _ = tx.send(RuntimeEvent::Done { session_id });
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(RuntimeEvent::Error {
+                                        session_id,
+                                        message: format!("Agent error: {}", e),
+                                    });
+                                }
+                            }
+                        });
+                        Ok(())
+                    }) => {
                         result?;
                     }
                     _ = ctrl_c => {
@@ -460,4 +589,59 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, resolve_api_key};
+    use clap::Parser;
+    use zero_core::config::{Config, ProviderConfig};
+
+    #[test]
+    fn resolve_api_key_prefers_cli_value() {
+        let config = Config {
+            provider: Some(ProviderConfig {
+                api_key: Some("file-key".to_string()),
+                ..ProviderConfig::default()
+            }),
+            ..Config::default()
+        };
+        let key = resolve_api_key(&Some("cli-key".to_string()), &config, "openai").unwrap();
+        assert_eq!(key, "cli-key");
+    }
+
+    #[test]
+    fn resolve_api_key_uses_config_when_cli_missing() {
+        let config = Config {
+            provider: Some(ProviderConfig {
+                api_key: Some("file-key".to_string()),
+                ..ProviderConfig::default()
+            }),
+            ..Config::default()
+        };
+        let key = resolve_api_key(&None, &config, "anthropic").unwrap();
+        assert_eq!(key, "file-key");
+    }
+
+    #[test]
+    fn resolve_api_key_errors_when_missing_in_both_sources() {
+        let config = Config {
+            provider: Some(ProviderConfig {
+                api_key: None,
+                ..ProviderConfig::default()
+            }),
+            ..Config::default()
+        };
+        let err = resolve_api_key(&None, &config, "openai").unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("provider.api_key is missing in ~/.zero/config.yaml")
+        );
+    }
+
+    #[test]
+    fn cli_parses_no_tui_flag() {
+        let cli = Cli::parse_from(["zero-cli", "--no-tui"]);
+        assert!(cli.no_tui);
+    }
 }

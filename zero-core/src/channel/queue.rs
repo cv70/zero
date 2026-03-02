@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
-use crate::channel::{ChannelMessage};
+use crate::channel::ChannelMessage;
 
 pub struct MessageQueue {
     inner: Arc<Mutex<mpsc::Receiver<ChannelMessage>>>,

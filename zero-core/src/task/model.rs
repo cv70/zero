@@ -1,6 +1,7 @@
+use crate::runtime::TaskState;
 /// Task data model
 use serde::{Deserialize, Serialize};
-use std::{time::SystemTime, collections::HashMap};
+use std::{collections::HashMap, time::SystemTime};
 
 /// Task status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,6 +23,12 @@ pub struct TaskResult {
     pub exit_code: i32,
 }
 
+/// Task success contract for post-execution verification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskSuccessContract {
+    pub required_substrings: Vec<String>,
+}
+
 /// Task model
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
@@ -40,7 +47,8 @@ impl Task {
     /// Create a new task
     pub fn new(id: String, title: String, description: String) -> Self {
         let now = SystemTime::now();
-        let duration = now.duration_since(SystemTime::UNIX_EPOCH)
+        let duration = now
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or(std::time::Duration::from_secs(0));
         let now = duration.as_secs().to_string();
         Self {
@@ -73,6 +81,17 @@ impl Task {
         self.dependencies
             .iter()
             .any(|dep| !completed_tasks.contains(dep))
+    }
+}
+
+impl From<TaskState> for TaskStatus {
+    fn from(value: TaskState) -> Self {
+        match value {
+            TaskState::Pending | TaskState::Runnable | TaskState::Waiting => TaskStatus::Pending,
+            TaskState::Running => TaskStatus::Running,
+            TaskState::Succeeded => TaskStatus::Completed,
+            TaskState::Failed | TaskState::Compensated => TaskStatus::Failed,
+        }
     }
 }
 

@@ -116,6 +116,53 @@ cargo build -p zero-core
 cargo run -p zero-cli -- --help
 ```
 
+## Run The Project
+
+1. Create `~/.zero/config.yaml`:
+
+```yaml
+name: "Zero Agent"
+provider:
+  name: "openai" # or anthropic / ollama
+  api_key: "your-api-key"
+  model: "gpt-4o"
+settings:
+  api_bind: "127.0.0.1:3001" # optional, zero-api bind address
+# api_host/api_port are also supported when api_bind is not set
+# settings:
+#   api_host: "0.0.0.0"
+#   api_port: 3000
+```
+
+2. Build binaries:
+
+```bash
+cargo build
+```
+
+3. Run CLI:
+
+```bash
+cargo run -p zero-cli -- --provider openai
+```
+
+4. Run API server:
+
+```bash
+cargo run -p zero-api
+```
+
+`zero-api` bind address resolution order:
+- `ZERO_API_BIND` environment variable (highest priority)
+- `settings.api_bind` in `~/.zero/config.yaml`
+- `settings.api_host` + `settings.api_port` in `~/.zero/config.yaml`
+- default: `0.0.0.0:3000`
+
+Example:
+```bash
+ZERO_API_BIND=127.0.0.1:3100 cargo run -p zero-api
+```
+
 For detailed setup instructions, see [Getting Started](./docs/01-getting-started.md).
 
 ## Roadmap

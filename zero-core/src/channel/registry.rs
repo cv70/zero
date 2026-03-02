@@ -83,12 +83,16 @@ impl ChannelRegistry for DefaultChannelRegistry {
         let _ = name;
         let _ = msg;
         // TODO: Implement message sending
-        Err(ChannelError::SendFailed("ChannelRegistry not fully implemented".to_string()))
+        Err(ChannelError::SendFailed(
+            "ChannelRegistry not fully implemented".to_string(),
+        ))
     }
 
     async fn receive(&self, name: &str) -> Result<Option<Message>, ChannelError> {
         let _ = name;
         // TODO: Implement message receiving
-        Err(ChannelError::ReceiveFailed("ChannelRegistry not fully implemented".to_string()))
+        Err(ChannelError::ReceiveFailed(
+            "ChannelRegistry not fully implemented".to_string(),
+        ))
     }
 }

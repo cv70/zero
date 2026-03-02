@@ -1,7 +1,7 @@
 // Channel module for message channels
+pub mod queue;
 pub mod registry;
 pub mod r#trait;
-pub mod queue;
 // pub mod persistence;
 
 use serde::{Deserialize, Serialize};
