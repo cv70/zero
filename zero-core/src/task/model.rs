@@ -23,6 +23,12 @@ pub struct TaskResult {
     pub exit_code: i32,
 }
 
+/// Task success contract for post-execution verification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskSuccessContract {
+    pub required_substrings: Vec<String>,
+}
+
 /// Task model
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {

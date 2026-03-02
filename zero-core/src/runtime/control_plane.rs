@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::error::ZeroError;
 use crate::runtime::contracts::{ExecutionPlan, StepSpec, TaskState};
 use crate::runtime::recovery::{FailureClass, RecoveryDecision, RecoveryPolicy};
+use crate::runtime::verifier::VerifyOutcome;
 
 pub struct ControlPlane {
     plans: HashMap<String, ExecutionPlan>,
@@ -65,6 +66,14 @@ impl ControlPlane {
 
     pub fn decide_recovery(&self, class: FailureClass, attempt: u8) -> RecoveryDecision {
         self.recovery_policy.on_failure(class, attempt)
+    }
+
+    pub fn handle_verification_outcome(&self, outcome: VerifyOutcome) -> RecoveryDecision {
+        match outcome {
+            VerifyOutcome::Passed => RecoveryDecision::Abort,
+            VerifyOutcome::NeedsRepair(_) => RecoveryDecision::ReplanLocal,
+            VerifyOutcome::HardFail => RecoveryDecision::Compensate,
+        }
     }
 }
 
